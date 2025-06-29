@@ -695,6 +695,8 @@ func (j *Jogo) calcularPontosEnvido(jogador *Jogador) int {
 		switch c.Valor {
 		case 10, 11, 12:
 			valor = 0
+		default:
+			valor = c.Valor
 		}
 		naipes[c.Naipe] = append(naipes[c.Naipe], valor)
 		if valor > maiorCarta {
@@ -723,8 +725,13 @@ func (j *Jogo) calcularPontosEnvido(jogador *Jogador) int {
 func (j *Jogo) calcularPontosFlor(jogador *Jogador) int {
 	pontos := 20
 
-	for _, carta := range jogador.Mao {
-		pontos += carta.Valor
+	for _, c := range jogador.Mao {
+		switch c.Valor {
+		case 10, 11, 12:
+			pontos += 0
+		default:
+			pontos += c.Valor
+		}
 	}
 
 	return pontos
