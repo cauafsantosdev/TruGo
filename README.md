@@ -1,14 +1,12 @@
 # TruGo
 
-Com certeza\! Aqui está a documentação formatada em Markdown.
-
 -----
 
-# **Documentação: Motor do Jogo de Truco (`truco.go`)**
+# **Documentação: Motor do Truco Gaudério (`truco.go`)**
 
 ### **Visão Geral**
 
-Este arquivo, `truco.go`, implementa o **motor** e todas as regras centrais para uma partida de Truco Gaudério (ou Truco Argentino) para dois jogadores. Ele é projetado para ser o *backend* do jogo, gerenciando o estado, as regras, as jogadas e a pontuação de forma autônoma.
+Implementa o **motor** e todas as regras centrais para uma partida de Truco Gaudério para dois jogadores. Ele é projetado para ser o *backend* do jogo, gerenciando o estado, as regras, as jogadas e a pontuação de forma autônoma.
 
 O motor é responsável por:
 
@@ -38,7 +36,7 @@ A lógica do jogo é construída em torno de algumas estruturas de dados essenci
 
   * **`Jogo`**: É a estrutura central que encapsula **todo o estado da partida**. Contém o baralho, a lista de jogadores, o placar, o turno atual, o estado da mão (quem venceu cada rodada), as apostas ativas (`Envido`, `Truco`), etc.
 
-### **Fluxo de Jogo (Game Lifecycle)**
+### **Fluxo de Jogo**
 
 A interação com o motor segue um fluxo bem definido:
 
