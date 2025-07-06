@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"trugo/ws"
 
 	"github.com/gorilla/websocket"
 )
@@ -13,24 +14,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "TruGo")
-}
-
 func reader(conn *websocket.Conn) {
 	for {
-		messageType, p, err := conn.ReadMessage()
+
+		_, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
-			return
+			log.Println("read error:", err)
+			break
 		}
 
-		log.Println(string(p))
-
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println(err)
-			return
-		}
+		ws.EscolhaType(message, conn)
 	}
 }
 
@@ -42,17 +35,16 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	log.Println("Client Successfully Connected...")
+	log.Println("Conexão estabelecida com o cliente!")
 	reader(ws)
 }
 
 func setupRoutes() {
-	http.HandleFunc("/", homePage)
 	http.HandleFunc("/ws", wsEndpoint)
 }
 
 func main() {
-	fmt.Println("Go WebSocket started")
+	fmt.Println("TruGo WebSocket started")
 	setupRoutes()
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
