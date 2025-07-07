@@ -14,9 +14,9 @@ type Sala struct {
 
 // STRUCT QUE GERENCIA O ESTADO DO JOGO
 type EstadoJogo struct {
-	Rodadas      []Rodada
-	Time01Pontos int16
-	Time02Pontos int16
+	Rodadas []Rodada
+	Time01  Equipe
+	Time02  Equipe
 }
 
 type Rodada struct {
@@ -35,4 +35,45 @@ type Rodada struct {
 	CartasJogada []CartaJogada
 	VezJogador   *Jogador
 	// Adicionar algo ainda
+}
+
+type Equipe struct {
+	Jogadores []*Jogador
+	Pontos    int
+}
+
+func (n *Sala) PrepararJogo() {
+	n.Jogo = NovoEstadoJogo()
+	n.Jogadores = []*Jogador{}
+}
+
+func (n *EstadoJogo) EscolherEquipe(escolha string, jogador *Jogador) {
+	switch escolha {
+	case "TIME_01":
+		if len(n.Time01.Jogadores) < 2 {
+			n.Time01.Jogadores = append(n.Time01.Jogadores, jogador)
+		}
+		// ADICIONAR TIME FULL (exception)
+	case "TIME_02":
+		if len(n.Time02.Jogadores) < 2 {
+			n.Time02.Jogadores = append(n.Time02.Jogadores, jogador)
+		}
+		// ADICIONAR TIME FULL (exception)
+	// ADICIONAR OPÇÃO INVALIDA (exception)
+	}
+}
+
+func NovoEstadoJogo() EstadoJogo {
+	return EstadoJogo{
+		Rodadas: []Rodada{},
+		Time01:  NovaEquipe(),
+		Time02:  NovaEquipe(),
+	}
+}
+
+func NovaEquipe() Equipe {
+	return Equipe{
+		Jogadores: []*Jogador{},
+		Pontos:    0,
+	}
 }
