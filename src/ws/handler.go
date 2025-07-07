@@ -20,5 +20,7 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 		CriarSala(message, conn)
 	case "ENTRAR_SALA":
 		EntrarSala(message, conn)
+	case "ENTRAR_EQUIPE":
+		EscolherTime(message, conn)
 	}
 }
