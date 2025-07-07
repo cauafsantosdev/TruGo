@@ -29,3 +29,7 @@ type EntrouSalaResposta struct {
 	Equipe01Vagas int    `json:"Equipe01Vagas"`
 	Equipe02Vagas int    `json:"Equipe02Vagas"`
 }
+
+type SalasDisponiveis struct {
+	SalasDisponiveis map[string]int `json:"salasDisponiveis"`
+}

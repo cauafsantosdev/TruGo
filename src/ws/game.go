@@ -17,7 +17,9 @@ func CriarSala(m []byte, conn *websocket.Conn) {
 		return
 	}
 
-	_, ok := models.Salas[payload.ID]
+	valor, ok := models.Salas[payload.ID]
+
+	log.Println(payload.ID, valor, models.Salas)
 
 	if ok {
 		resposta := models.Resposta{
@@ -54,7 +56,7 @@ func EntrarSala(m []byte, conn *websocket.Conn) {
 	}
 
 	sala, ok := models.Salas[payload.IdSala]
-	if !ok {
+	if !ok { // (EXCEPTION) ID DA SALA NÃO ENCONTRADO
 		resposta := models.Resposta{
 			Type: "Err",
 			Msg:  fmt.Sprintf("A sala com o ID %s não foi encontrada", payload.IdSala),
@@ -65,7 +67,7 @@ func EntrarSala(m []byte, conn *websocket.Conn) {
 		return
 	}
 
-	if len(sala.Jogadores) >= 2 {
+	if len(sala.Jogadores) >= 2 { // (EXCEPTION) SALA LOTADA
 		resposta := models.Resposta{
 			Type: "Err",
 			Msg:  fmt.Sprintf("A sala com o ID %s já está lotada", payload.IdSala),
@@ -128,6 +130,21 @@ func EscolherTime(m []byte, conn *websocket.Conn) {
 	}
 
 	// CASO NÃO ACHE O JOGADOR (ADICIONAR COD)
+}
+
+func ListarSalas(conn *websocket.Conn) {
+	salasDisponiveis := make(map[string]int)
+
+	for chave, sala := range models.Salas {
+		salasDisponiveis[chave] = 2 - len(sala.Jogadores)
+	}
+
+	var payload models.SalasDisponiveis
+	payload.SalasDisponiveis = salasDisponiveis
+
+	data, _ := json.Marshal(payload)
+
+	conn.WriteMessage(websocket.TextMessage, data)
 }
 
 // REFATORAR DEPOIS
