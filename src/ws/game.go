@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
+	"time"
 	"trugo/models"
 
 	"github.com/gorilla/websocket"
@@ -109,27 +111,30 @@ func EscolherTime(m []byte, conn *websocket.Conn) {
 	}
 
 	if jogador := ProcurarJogador(sala.Jogadores, conn); jogador != nil {
-		sala.Jogo.EscolherEquipe(payload.TimeEscolhido, jogador)
+		entrouEquipe := sala.Jogo.EscolherEquipe(payload.TimeEscolhido, jogador)
 
-		resposta := models.Resposta{
-			Type: "ok",
-			Msg:  "Você entrou no time com sucesso",
+		var resposta models.Resposta
+
+		if entrouEquipe {
+			resposta = models.Resposta{
+				Type: "ok",
+				Msg:  "Você entrou no time com sucesso",
+			}
+		} else {
+			resposta = models.Resposta{
+				Type: "error",
+				Msg:  "O time selecionado não há vagas disponiveis",
+			}
 		}
 
 		data, _ := json.Marshal(resposta)
-
 		conn.WriteMessage(websocket.TextMessage, data)
-	}
 
-	for _, jogador := range sala.Jogo.Time01.Jogadores {
-		fmt.Printf("TIME 01: JOGADOR: %s \n", jogador.Nome)
-	}
+	} // CASO NÃO ACHE O JOGADOR (ADICIONAR COD) else (EXCEPTION)
 
-	for _, jogador := range sala.Jogo.Time02.Jogadores {
-		fmt.Printf("TIME 02: JOGADOR: %s \n", jogador.Nome)
+	if len(sala.Jogo.Time01.Jogadores)+len(sala.Jogo.Time02.Jogadores) == 2 {
+		ComecarPartida(sala)
 	}
-
-	// CASO NÃO ACHE O JOGADOR (ADICIONAR COD)
 }
 
 func ListarSalas(conn *websocket.Conn) {
@@ -147,6 +152,13 @@ func ListarSalas(conn *websocket.Conn) {
 	conn.WriteMessage(websocket.TextMessage, data)
 }
 
+func ComecarPartida(sala *models.Sala) {
+	// Cria o baralho e atribuir ao Estado do Jogo
+	sala.Jogo.Baralho = CriarBaralho()
+
+	IniciarRodada(sala)
+}
+
 // REFATORAR DEPOIS
 func ProcurarJogador(listaJogadores []*models.Jogador, conn *websocket.Conn) *models.Jogador {
 	for _, jogador := range listaJogadores {
@@ -156,4 +168,142 @@ func ProcurarJogador(listaJogadores []*models.Jogador, conn *websocket.Conn) *mo
 	}
 
 	return nil
+}
+
+// <<BLOCO ONGOING>> {
+func IniciarRodada(sala *models.Sala) {
+	// Embaralha o baralho
+	src := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(src)
+
+	r.Shuffle(len(sala.Jogo.Baralho), func(i, j int) {
+		sala.Jogo.Baralho[i], sala.Jogo.Baralho[j] = sala.Jogo.Baralho[j], sala.Jogo.Baralho[i]
+	})
+
+	// Limpa as mãos dos jogadores antes de atribuir as cartas
+	for _, jogador := range sala.Jogadores {
+		jogador.Mao = []models.Cartas{}
+	}
+
+	// Atribui as cartas aos jogadores
+	idxBaralho := 0
+	for i := 0; i < 3; i++ {
+		for _, jogador := range sala.Jogadores {
+			jogador.Mao = append(jogador.Mao, sala.Jogo.Baralho[idxBaralho])
+			idxBaralho++
+		}
+	}
+
+	// CORRIGIR (RODADA SEMPRE VAI INICIAR COMO NIL)
+	rodada := models.Rodada{}
+	if rodada.VezJogador == nil {
+		r := rand.Intn(2)
+		rodada.VezJogador = sala.Jogadores[r]
+
+		// TRANSFERIR AS LÓGICAS DE ELSE IF PARA UMA NOVA FUNÇÃO OU REUTILIZAR A FUNÇÃO PARA GERENCIAR O ESTADO DA RODADA
+	} else if rodada.VezJogador == sala.Jogo.Time01.Jogadores[0] {
+		AvisarJogadorVez(rodada.VezJogador, &rodada)
+		rodada.VezJogador = sala.Jogo.Time02.Jogadores[0]
+	} else if rodada.VezJogador == sala.Jogo.Time02.Jogadores[1] {
+		AvisarJogadorVez(rodada.VezJogador, &rodada)
+		rodada.VezJogador = sala.Jogo.Time01.Jogadores[0]
+	}
+
+	sala.Jogo.Rodadas = append(sala.Jogo.Rodadas, &rodada)
+}
+
+func AvisarJogadorVez(j *models.Jogador, r *models.Rodada) {
+	payload := models.StatusRodada{
+		Type:              "SUA_VEZ",
+		CartasJogadas:     CartasNaMesa(r),
+		ApostasDiponiveis: ApostasAtivas(r),
+	}
+
+	data, _ := json.Marshal(payload)
+
+	j.Conn.WriteMessage(websocket.TextMessage, data)
+}
+
+func ApostasAtivas(r *models.Rodada) map[string]bool {
+	return map[string]bool{
+		"Flor":        r.Flor,
+		"Envido":      r.Envido,
+		"Truco":       r.Truco,
+		"ContraFlor":  r.ContraFlor,
+		"RealEnvido":  r.RealEnvido,
+		"FaltaEnvido": r.FaltaEnvido,
+		"Retruco":     r.Retruco,
+		"ValeQuatro":  r.ValeQuatro,
+	}
+}
+
+// <<BLOCO ONGOING>> }
+
+func CartasNaMesa(r *models.Rodada) []models.Jogada {
+	lista := []models.Jogada{}
+
+	for _, cartas := range r.CartasJogada {
+		carta := models.CartaResposta{
+			Naipe: cartas.Carta.Naipe,
+			Valor: cartas.Carta.Valor,
+			Forca: cartas.Carta.Forca,
+		}
+
+		cartaJogada := models.Jogada{
+			IDEquipe:    cartas.Jogador.Time,
+			JogadorNome: cartas.Jogador.Nome,
+			CartaJogada: carta,
+		}
+
+		lista = append(lista, cartaJogada)
+	}
+
+	return lista
+}
+
+func CriarBaralho() []models.Cartas {
+	naipes := []string{"Copas", "Espadas", "Paus", "Ouros"}
+	valores := []int{1, 2, 3, 4, 5, 6, 7, 10, 11, 12}
+	baralho := make([]models.Cartas, 0, 40)
+
+	for _, naipe := range naipes {
+		for _, valor := range valores {
+			carta := models.Cartas{Valor: valor, Naipe: naipe}
+
+			switch {
+			// Manilhas
+			case valor == 1 && naipe == "Espadas":
+				carta.Forca = 13
+			case valor == 1 && naipe == "Paus":
+				carta.Forca = 12
+			case valor == 7 && naipe == "Espadas":
+				carta.Forca = 11
+			case valor == 7 && naipe == "Ouros":
+				carta.Forca = 10
+			// Cartas Comuns
+			case valor == 3:
+				carta.Forca = 9
+			case valor == 2:
+				carta.Forca = 8
+			case valor == 1:
+				carta.Forca = 7
+			case valor == 12:
+				carta.Forca = 6
+			case valor == 11:
+				carta.Forca = 5
+			case valor == 10:
+				carta.Forca = 4
+			case valor == 7:
+				carta.Forca = 3
+			case valor == 6:
+				carta.Forca = 2
+			case valor == 5:
+				carta.Forca = 1
+			case valor == 4:
+				carta.Forca = 0
+			}
+			baralho = append(baralho, carta)
+		}
+	}
+	return baralho
 }
