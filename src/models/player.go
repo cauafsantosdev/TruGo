@@ -10,6 +10,7 @@ type Jogador struct {
 	ID   string
 	Nome string
 	Mao  []Cartas
+	Time string
 }
 
 type Time struct {
