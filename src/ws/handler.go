@@ -24,6 +24,8 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 		EscolherTime(message, conn)
 	case "LISTAR_SALAS":
 		ListarSalas(conn)
+	case "FAZER_JOGADA":
+		
 	}
-	
+
 }
