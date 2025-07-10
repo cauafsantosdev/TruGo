@@ -19,9 +19,7 @@ func CriarSala(m []byte, conn *websocket.Conn) {
 		return
 	}
 
-	valor, ok := models.Salas[payload.ID]
-
-	log.Println(payload.ID, valor, models.Salas)
+	_, ok := models.Salas[payload.ID]
 
 	if ok {
 		resposta := models.Resposta{
@@ -81,8 +79,6 @@ func EntrarSala(m []byte, conn *websocket.Conn) {
 	}
 
 	jogador := models.NovoJogador(payload.Nome, conn)
-
-	log.Println(len(sala.Jogo.Time01.Jogadores))
 
 	sala.Jogadores = append(sala.Jogadores, jogador)
 	resposta := models.EntrouSalaResposta{
@@ -153,9 +149,14 @@ func ListarSalas(conn *websocket.Conn) {
 }
 
 func ComecarPartida(sala *models.Sala) {
+	// Inicia a partida
+	sala.Status = "EM_ANDAMENTO"
+
 	// Cria o baralho e atribuir ao Estado do Jogo
 	sala.Jogo.Baralho = CriarBaralho()
 
+	// Adicinar um for caso haja mais de 2 jogadores
+	sala.Jogo.JogadorVez = sala.Jogadores[1]
 	IniciarRodada(sala)
 }
 
@@ -194,22 +195,22 @@ func IniciarRodada(sala *models.Sala) {
 		}
 	}
 
-	// CORRIGIR (RODADA SEMPRE VAI INICIAR COMO NIL)
-	rodada := models.Rodada{}
-	if rodada.VezJogador == nil {
-		r := rand.Intn(2)
-		rodada.VezJogador = sala.Jogadores[r]
-
-		// TRANSFERIR AS LÓGICAS DE ELSE IF PARA UMA NOVA FUNÇÃO OU REUTILIZAR A FUNÇÃO PARA GERENCIAR O ESTADO DA RODADA
-	} else if rodada.VezJogador == sala.Jogo.Time01.Jogadores[0] {
-		AvisarJogadorVez(rodada.VezJogador, &rodada)
-		rodada.VezJogador = sala.Jogo.Time02.Jogadores[0]
-	} else if rodada.VezJogador == sala.Jogo.Time02.Jogadores[1] {
-		AvisarJogadorVez(rodada.VezJogador, &rodada)
-		rodada.VezJogador = sala.Jogo.Time01.Jogadores[0]
+	rodada := models.Rodada{
+		Flor:        true,
+		Envido:      true,
+		Truco:       true,
+		ContraFlor:  true,
+		RealEnvido:  true,
+		FaltaEnvido: true,
+		Retruco:     true,
+		ValeQuatro:  true,
+		// AJUSTAR ISSO
+		VezJogador: sala.Jogadores[1],
 	}
 
 	sala.Jogo.Rodadas = append(sala.Jogo.Rodadas, &rodada)
+
+	AvisarJogadorVez(sala.Jogo.JogadorVez, &rodada)
 }
 
 func AvisarJogadorVez(j *models.Jogador, r *models.Rodada) {
@@ -220,7 +221,6 @@ func AvisarJogadorVez(j *models.Jogador, r *models.Rodada) {
 	}
 
 	data, _ := json.Marshal(payload)
-
 	j.Conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -238,6 +238,80 @@ func ApostasAtivas(r *models.Rodada) map[string]bool {
 }
 
 // <<BLOCO ONGOING>> }
+
+func FazerJogada(m []byte, conn *websocket.Conn) {
+	var payload models.FazerJogada
+	json.Unmarshal(m, &payload)
+
+	salaExiste := VerificarSalaExiste(payload.IDSala, conn)
+	if salaExiste == nil {
+		return
+	}
+	if !VerificarVezJogadorRodada(salaExiste, conn) {
+		return
+	}
+
+	log.Println(payload)
+	// LÓGICA DA JOGADA AQUI
+	// VERIFICAR SE O JOGADOR CHAMOU ALGUMA APOSTA... # payload.ApostaPedida
+	// VERIFICAR SE O JOGADOR JOGOU UMA CARTA QUE ESTÁ NA SUA MÃO... # salaExiste.Jogo.JogadorVez.Mao (fazer um FOR)
+	// ADICIONAR A CARTA JOGADA AO # RodadaAtual(salaExiste).CartasJogada (usar append)
+	// CHAMAR FUNÇÃO DE VERIFICAR O ESTADO DA RODADA, CASO O JOGADOR FOR O ÚLTIMO A JOGAR (se ganhou a mão ou se perdeu)
+	// PASSAR A VEZ PARA O PRÓXIMO JOGADOR (o jogador que ganhou a rodada)
+	// NOTIFICAR TODOS OS JOGADORES SOBRE A JOGADA FEITA (função NotificarJogadores)
+	// VERIFICA SE ACABOU A RODADA E PASSA PARA O JOGADOR SEGUINTE (next na lista)
+}
+
+func VerificarVezJogadorRodada(sala *models.Sala, conn *websocket.Conn) bool {
+	if !VerificarJogadorNaSala(sala, conn) {
+		responderErro(conn, "O jogador não está na partida")
+		return false
+	}
+	if RodadaAtual(sala).VezJogador.Conn != conn {
+		responderErro(conn, "Não é a vez do jogador")
+		return false
+	}
+	return true
+}
+
+func VerificarJogadorNaSala(sala *models.Sala, conn *websocket.Conn) bool {
+	for _, jogador := range sala.Jogadores {
+		if jogador.Conn == conn {
+			return true
+		}
+	}
+
+	return false
+}
+
+func RodadaAtual(sala *models.Sala) *models.Rodada {
+	return sala.Jogo.Rodadas[len(sala.Jogo.Rodadas)-1]
+}
+
+func VerificarSalaExiste(idSala string, conn *websocket.Conn) *models.Sala {
+	sala, ok := models.Salas[idSala]
+
+	if !ok {
+		responderErro(conn, "A sala com o ID %s não foi encontrada.", idSala)
+		return nil
+	}
+
+	if sala.Status != "EM_ANDAMENTO" {
+		responderErro(conn, "A sala com o ID %s não está em andamento.", idSala)
+		return nil
+	}
+
+	return sala
+}
+
+func responderErro(conn *websocket.Conn, msg string, args ...interface{}) {
+	resposta := models.Resposta{
+		Type: "err",
+		Msg:  fmt.Sprintf(msg, args...),
+	}
+	data, _ := json.Marshal(resposta)
+	conn.WriteMessage(websocket.TextMessage, data)
+}
 
 func CartasNaMesa(r *models.Rodada) []models.Jogada {
 	lista := []models.Jogada{}
