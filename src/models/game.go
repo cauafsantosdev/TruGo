@@ -8,16 +8,18 @@ var (
 )
 
 type Sala struct {
+	Status    string
 	Jogo      EstadoJogo
 	Jogadores []*Jogador
 }
 
 // STRUCT QUE GERENCIA O ESTADO DO JOGO
 type EstadoJogo struct {
-	Rodadas []*Rodada
-	Time01  Equipe
-	Time02  Equipe
-	Baralho []Cartas
+	Rodadas    []*Rodada
+	Time01     Equipe
+	Time02     Equipe
+	Baralho    []Cartas
+	JogadorVez *Jogador
 }
 
 type Rodada struct {
