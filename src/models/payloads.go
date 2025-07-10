@@ -41,8 +41,8 @@ type CartaResposta struct {
 }
 
 type Jogada struct {
-	IDEquipe    string `json:"idEquipe"`
-	JogadorNome string `json:"jogador"`
+	IDEquipe    string        `json:"idEquipe"`
+	JogadorNome string        `json:"jogador"`
 	CartaJogada CartaResposta `json:"cartaJogada"`
 }
 
@@ -50,4 +50,11 @@ type StatusRodada struct {
 	Type              string          `json:"type"`
 	CartasJogadas     []Jogada        `json:"cartasJogadas"`
 	ApostasDiponiveis map[string]bool `json:"apostasDisponiveis"`
+}
+
+type FazerJogada struct {
+	Type         string        `json:"type"`
+	IDSala       string        `json:"idSala"`
+	CartaJogada  CartaResposta `json:"cartaJogada"`
+	ApostaPedida string        `json:"apostaPedida"`
 }
