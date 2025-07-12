@@ -11,10 +11,18 @@ import (
 
 const (
 	StatusAguardandoAposta = "AGUARDANDO_RESPOSTA_APOSTA"
-	EstadoAceito     = "ACEITO"
-	TipoTruco        = "TRUCO"
-	Time01           = "TIME_01"
-	Time02           = "TIME_02"
+	EstadoAceito           = "ACEITO"
+
+	TipoTruco      = "TRUCO"
+	TipoRetruco    = "RETRUCO"
+	TipoValeQuatro = "VALE_QUATRO"
+
+	TipoEnvido      = "ENVIDO"
+	TipoRealEnvido  = "REAL_ENVIDO"
+	TipoFaltaEnvido = "FALTA_ENVIDO"
+
+	Time01 = "TIME_01"
+	Time02 = "TIME_02"
 )
 
 func CriarSala(m []byte, conn *websocket.Conn) {
@@ -209,6 +217,9 @@ func IniciarRodada(sala *models.Sala) {
 		}
 	}
 
+	EnviarMaosAosJogadores(sala)
+	sala.Jogo.Estado = "EM_ANDAMENTO"
+
 	rodada := models.Rodada{
 		Flor:        true,
 		Envido:      true,
@@ -216,18 +227,33 @@ func IniciarRodada(sala *models.Sala) {
 		ContraFlor:  true,
 		RealEnvido:  true,
 		FaltaEnvido: true,
-		Retruco:     true,
-		ValeQuatro:  true,
+		Retruco:     false,
+		ValeQuatro:  false,
 		ValorDaMao:  1,
 		// AJUSTAR ISSO
 		VezJogador: AlternarVezJogador(sala),
 	}
 
 	sala.Jogo.Rodadas = append(sala.Jogo.Rodadas, &rodada)
-	sala.Jogo.Estado = "EM_ANDAMENTO"
 
-	AvisarJogadorVez(sala.Jogo.JogadorVez, &rodada, sala)
+	AvisarJogadorVez(rodada.VezJogador, &rodada, sala)
 	NotificarJogadores(sala)
+}
+
+func EnviarMaosAosJogadores(s *models.Sala) {
+	for _, jogador := range s.Jogadores {
+		payload := models.MaoDaRodada{
+			Type: "MAO_RODADA",
+		}
+
+		for _, c := range jogador.Mao {
+			payload.Mao = append(payload.Mao, models.CartaResposta(c))
+		}
+
+		if data, err := json.Marshal(payload); err == nil {
+			jogador.Conn.WriteMessage(websocket.TextMessage, data)
+		}
+	}
 }
 
 func AlternarVezJogador(s *models.Sala) *models.Jogador {
@@ -287,9 +313,14 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	// VERIFICAR SE O JOGADOR CHAMOU ALGUMA APOSTA... # payload.ApostaPedida
 
 	if salaExiste == nil {
+		// Não existe a sala
 		return
 	}
 	if !VerificarVezJogadorRodada(salaExiste, conn) {
+		return
+	}
+	if salaExiste.Jogo.Estado != "EM_ANDAMENTO" {
+		// Aposta em andamento
 		return
 	}
 
@@ -301,8 +332,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 	// ADICIONAR A CARTA JOGADA AO # RodadaAtual(salaExiste).CartasJogada (usar append)
 	rodadaAtual.CartasJogada = append(RodadaAtual(salaExiste).CartasJogada, cartaJogada)
-
-	log.Println(payload)
 
 	// CHAMAR FUNÇÃO DE VERIFICAR O ESTADO DA RODADA, CASO O JOGADOR FOR O ÚLTIMO A JOGAR (se ganhou a mão ou se perdeu)
 	if rodadaAtual.IdxJogador == 1 {
@@ -568,13 +597,73 @@ func AceitarAposta(m []byte, conn *websocket.Conn) {
 		r.ApostaAtual.Tipo != payload.TipoAposta {
 		return
 	}
-	log.Println("AQUI")
 	// só entra aqui se for tudo válido
 	switch payload.TipoAposta {
 	case TipoTruco:
 		AvaliarTruco(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
+	case TipoRetruco:
+		AvaliarRetruco(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
+	case TipoValeQuatro:
+		AvaliarValeQuatro(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
 	}
 
+}
+
+// ANDAMENTO
+
+func AvaliarValeQuatro(sala *models.Sala, r *models.Rodada, time string, aceitou bool) {
+	resposta := models.RespostaAposta{
+		Type:       "RESPOSTA_APOSTA",
+		TipoAposta: TipoValeQuatro,
+		Aceito:     aceitou,
+	}
+
+	if aceitou {
+		r.ApostaAtual.Estado = EstadoAceito
+		r.ValorDaMao = 4
+	} else {
+		// Caso o Retruco seja recusado, atribui o valor da mão
+		r.ApostaAtual.Estado = "RECUSADO"
+		switch time {
+		case Time01:
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao)
+		case Time02:
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
+		}
+
+		NotificarRespostaAposta(sala, resposta, time)
+		IniciarRodada(sala)
+	}
+
+	NotificarRespostaAposta(sala, resposta, time)
+
+}
+
+func AvaliarRetruco(sala *models.Sala, r *models.Rodada, time string, aceitou bool) {
+	resposta := models.RespostaAposta{
+		Type:       "RESPOSTA_APOSTA",
+		TipoAposta: TipoRetruco,
+		Aceito:     aceitou,
+	}
+
+	if aceitou {
+		r.ApostaAtual.Estado = EstadoAceito
+		r.ValorDaMao = 3
+	} else {
+		// Caso o Retruco seja recusado, atribui o valor da mão
+		r.ApostaAtual.Estado = "RECUSADO"
+		switch time {
+		case Time01:
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao)
+		case Time02:
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
+		}
+
+		NotificarRespostaAposta(sala, resposta, time)
+		IniciarRodada(sala)
+	}
+
+	NotificarRespostaAposta(sala, resposta, time)
 }
 
 func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, aceitou bool) {
@@ -597,9 +686,14 @@ func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, aceitou bool
 			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
 		}
 
+		NotificarRespostaAposta(sala, resposta, time)
 		IniciarRodada(sala)
 	}
 
+	NotificarRespostaAposta(sala, resposta, time)
+}
+
+func NotificarRespostaAposta(sala *models.Sala, resposta models.RespostaAposta, time string) {
 	data, _ := json.Marshal(resposta)
 
 	var adversarios []*models.Jogador
@@ -636,7 +730,7 @@ func ChamarTruco(m []byte, conn *websocket.Conn) {
 	jogadorDoTruco := BuscarJogador(sala, conn)
 
 	if rodadaAtual.VezJogador != jogadorDoTruco {
-		// NÃO É A VEZ DO JOGADOR
+		responderErro(conn, "Não é a vez do jogador")
 		return
 	}
 
@@ -665,7 +759,6 @@ func EnviarAposta(time string, sala *models.Sala, tipoAposta string) {
 		Type:         "APOSTA",
 		TipoDeAposta: tipoAposta,
 	}
-
 	var data []byte
 	data, _ = json.Marshal(aposta)
 
@@ -687,11 +780,105 @@ func BuscarJogador(sala *models.Sala, conn *websocket.Conn) *models.Jogador {
 	return nil
 }
 
+func ChamarRetruco(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Truco {
+		responderErro(conn, "Não é possível pedir Retruco")
+	}
+
+	jogadorDoTruco := BuscarJogador(sala, conn)
+
+	//if rodadaAtual.VezJogador != jogadorDoTruco {
+	// NÃO É A VEZ DO JOGADOR
+	//	return
+	//}
+
+	//if !(rodadaAtual.ApostaAtual.Tipo == TipoTruco) && !(jogadorDoTruco.Time == rodadaAtual.ApostaAtual.ParaTime) {
+	//	responderErro(conn, "Pedido de Retruco inválido")
+	//	return
+	//}
+
+	switch jogadorDoTruco.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoRetruco,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoRetruco)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoRetruco,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoRetruco)
+	}
+
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+func ChamarValeQuatro(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Truco {
+		responderErro(conn, "Não é possível pedir Retruco")
+	}
+
+	jogadorDoTruco := BuscarJogador(sala, conn)
+
+	if rodadaAtual.VezJogador != jogadorDoTruco {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	if !(rodadaAtual.ApostaAtual.Tipo == TipoRetruco) && !(jogadorDoTruco.Time == rodadaAtual.ApostaAtual.ParaTime) {
+		responderErro(conn, "Pedido de Vale Quatro inválido")
+		return
+	}
+
+	switch jogadorDoTruco.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoValeQuatro,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoValeQuatro)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoValeQuatro,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoValeQuatro)
+	}
+
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
 func ChamarEnvido(m []byte, conn *websocket.Conn) {}
 func CantarFlor(m []byte, conn *websocket.Conn)   {}
 
 func CantarContraFlor(m []byte, conn *websocket.Conn)  {}
-func ChamarRetruco(m []byte, conn *websocket.Conn)     {}
-func ChamarValeQuatro(m []byte, conn *websocket.Conn)  {}
 func ChamarRealEnvido(m []byte, conn *websocket.Conn)  {}
 func ChamarFaltaEnvido(m []byte, conn *websocket.Conn) {}

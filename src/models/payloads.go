@@ -81,3 +81,8 @@ type RespostaAposta struct {
 	TipoAposta string `json:"tipoAposta"`
 	Aceito     bool   `json:"aceito"`
 }
+
+type MaoDaRodada struct {
+	Type string          `json:"type"`
+	Mao  []CartaResposta `json:"mao"`
+}
