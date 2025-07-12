@@ -50,6 +50,7 @@ type StatusRodada struct {
 	Type              string          `json:"type"`
 	CartasJogadas     []Jogada        `json:"cartasJogadas"`
 	ApostasDiponiveis map[string]bool `json:"apostasDisponiveis"`
+	Placar            map[string]int  `json:"placar"`
 }
 
 type FazerJogada struct {
@@ -57,4 +58,26 @@ type FazerJogada struct {
 	IDSala       string        `json:"idSala"`
 	CartaJogada  CartaResposta `json:"cartaJogada"`
 	ApostaPedida string        `json:"apostaPedida"`
+}
+
+type IDSala struct {
+	IDSala string `json:"idSala"`
+}
+
+type EnviarAposta struct {
+	Type         string `json:"type"`
+	TipoDeAposta string `json:"aposta"`
+}
+
+type AceitarAposta struct {
+	Type       string `json:"type"`
+	TipoAposta string `json:"tipoAposta"`
+	IDSala     string `json:"idSala"`
+	Aceitar    bool   `json:"aceitar"`
+}
+
+type RespostaAposta struct {
+	Type       string `json:"type"`
+	TipoAposta string `json:"tipoAposta"`
+	Aceito     bool   `json:"aceito"`
 }

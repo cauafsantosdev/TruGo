@@ -26,6 +26,23 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 		ListarSalas(conn)
 	case "FAZER_JOGADA":
 		FazerJogada(message, conn)
+	case "CHAMAR_TRUCO":
+		ChamarTruco(message, conn)
+	case "CANTAR_FLOR":
+		CantarFlor(message, conn)
+	case "CHAMAR_ENVIDO":
+		ChamarEnvido(message, conn)
+	case "CANTAR_CONTRA_FLOR":
+		CantarContraFlor(message, conn)
+	case "CHAMAR_REAL_ENVIDO":
+		ChamarRealEnvido(message, conn)
+	case "CHAMAR_FALTA_ENVIDO":
+		ChamarFaltaEnvido(message, conn)
+	case "CHAMAR_RETRUCO":
+		ChamarRetruco(message, conn)
+	case "CHAMAR_VALE_QUATRO":
+		ChamarValeQuatro(message, conn)
+	case "ACEITAR_APOSTA":
+		AceitarAposta(message, conn)
 	}
-
 }

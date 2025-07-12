@@ -15,15 +15,24 @@ type Sala struct {
 
 // STRUCT QUE GERENCIA O ESTADO DO JOGO
 type EstadoJogo struct {
+	Estado     string
 	Rodadas    []*Rodada
 	Time01     Equipe
 	Time02     Equipe
 	Baralho    []Cartas
 	JogadorVez *Jogador
+	IdxJogador int
+}
+
+type Aposta struct {
+	Tipo     string
+	Estado   string
+	ParaTime string
 }
 
 type Rodada struct {
-	// Apostas principais
+	ApostaAtual Aposta
+
 	Flor   bool
 	Envido bool
 	Truco  bool
@@ -37,7 +46,10 @@ type Rodada struct {
 
 	CartasJogada []CartaJogada
 	VezJogador   *Jogador
-	// Adicionar algo ainda
+
+	ValorDaMao int
+	Rodada     []int
+	IdxJogador int
 }
 
 type Equipe struct {
@@ -55,11 +67,13 @@ func (n *EstadoJogo) EscolherEquipe(escolha string, jogador *Jogador) bool {
 	case "TIME_01":
 		if len(n.Time01.Jogadores) < 1 {
 			n.Time01.Jogadores = append(n.Time01.Jogadores, jogador)
+			jogador.Time = "TIME_01"
 			return true
 		}
 	case "TIME_02":
 		if len(n.Time02.Jogadores) < 1 {
 			n.Time02.Jogadores = append(n.Time02.Jogadores, jogador)
+			jogador.Time = "TIME_02"
 			return true
 		}
 	}

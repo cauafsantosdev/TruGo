@@ -1,5 +1,7 @@
 package models
 
+import "fmt"
+
 type Cartas struct {
 	Valor int
 	Naipe string
@@ -9,4 +11,8 @@ type Cartas struct {
 type CartaJogada struct {
 	Jogador *Jogador
 	Carta   *Cartas
+}
+
+func (c Cartas) String() string {
+	return fmt.Sprintf("%d de %s", c.Valor, c.Naipe)
 }
