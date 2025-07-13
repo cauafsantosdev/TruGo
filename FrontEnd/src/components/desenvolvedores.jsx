@@ -1,14 +1,9 @@
 function Devs(){
     return (
-        <div className="h-1/2 w-1/2 flex flex-col items-center text-red-400">
-            <h1 className="text-3xl font-bold mb-4">Desenvolido por:</h1>
-            <ul className="list-disc list-inside">
-                <li>Bernardo Vassão</li>
-                <li>Carlos Araújo</li>
-                <li>Cauã Santos</li>
-                <li>João Pedro</li>
-            </ul>
-            </div>
+        <footer className="h-18 w-full flex items-center text-yellow-50 justify-center bg-yellow-950 fixed bottom-0">
+            <h1 className="text-3xl font-bold mb-1">Desenvolido por:</h1>
+            <p className="p-8">Bernardo Vassão, Carlos Araújo, Cauã Santos e João Pedro</p>
+        </footer>
     );
 }
 
