@@ -1,5 +1,3 @@
-import './index.css';
-
 function App() {
   return (
     // Um container que centraliza tudo na tela com fundo escuro
