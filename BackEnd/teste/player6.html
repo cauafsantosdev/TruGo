@@ -1,0 +1,26 @@
+<script>
+        const socket = new WebSocket("ws://localhost:8080/ws");
+
+            socket.onopen = function() {
+            console.log("Conexão aberta");
+
+            socket.send(JSON.stringify({
+                type: "ENTRAR_SALA",
+                nome: "Steven",
+                idSala: "2020"
+            }));
+
+            socket.send(JSON.stringify({
+                type: "ENTRAR_EQUIPE",
+                idSala: "2020",
+                TimeEscolhido: "TIME_02",
+            }));
+        }
+
+        socket.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+
+        console.log("📨", e.data);}
+
+        socket.onclose = () => console.log("Socket fechado!");
+</script>

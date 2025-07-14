@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENTRAR EQUIPE JG2</title>
+</head>
+<body>
+    <script>
+        const socket = new WebSocket("ws://localhost:8080/ws");
+
+            socket.onopen = function() {
+            console.log("Conexão aberta");
+
+            socket.send(JSON.stringify({
+                type: "ENTRAR_SALA",
+                nome: "Cauã",
+                idSala: "2020"
+            }));
+
+            socket.send(JSON.stringify({
+                type: "ENTRAR_EQUIPE",
+                idSala: "2020",
+                TimeEscolhido: "TIME_01",
+            }));
+        }
+            
+
+        const minhasJogadas = [
+        { valor: 1, naipe: "Copas", forca: 7 },
+        { valor: 3, naipe: "Copas", forca: 9 },
+        { valor: 5, naipe: "Copas", forca: 1 },
+        ];
+
+        socket.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+
+        if (msg.type === "SUA_VEZ") {
+            socket.send(JSON.stringify({
+                type: "CHAMAR_TRUCO",
+                idSala: "2020"
+            }))
+        } else if (msg.type === "APOSTA") {
+            socket.send(JSON.stringify({
+  "type": "ACEITAR_APOSTA",
+  "tipoAposta": "TRUCO",
+  "idSala": "2020",
+  "aceitar": true
+}))
+        }
+
+        console.log("📨", e.data);
+        };
+
+        socket.onclose = () => console.log("Socket fechado!");
+    </script>
+</body>
+</html>

@@ -47,9 +47,11 @@ type Rodada struct {
 	CartasJogada []CartaJogada
 	VezJogador   *Jogador
 
-	ValorDaMao int
-	Rodada     []int
-	IdxJogador int
+	ValorDaMao   int
+	Rodada       []int
+	IdxJogador   int
+	TimeDaMao    string
+	CadeiaEnvido int
 }
 
 type Equipe struct {
