@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
+	"sort"
+	"time"
 	"trugo/models"
 
 	"github.com/gorilla/websocket"
@@ -20,6 +23,9 @@ const (
 	TipoEnvido      = "ENVIDO"
 	TipoRealEnvido  = "REAL_ENVIDO"
 	TipoFaltaEnvido = "FALTA_ENVIDO"
+
+	TipoFlor       = "FLOR"
+	TipoContraFlor = "CONTRA_FLOR"
 
 	Time01 = "TIME_01"
 	Time02 = "TIME_02"
@@ -147,7 +153,10 @@ func EscolherTime(m []byte, conn *websocket.Conn) {
 		data, _ := json.Marshal(resposta)
 		conn.WriteMessage(websocket.TextMessage, data)
 
-	} // CASO NÃO ACHE O JOGADOR (ADICIONAR COD) else (EXCEPTION)
+	} else {
+		responderErro(conn, "Jogador não faz parte da sala")
+		return
+	}
 
 	if len(sala.Jogo.Time01.Jogadores)+len(sala.Jogo.Time02.Jogadores) == 2 {
 		ComecarPartida(sala)
@@ -196,12 +205,16 @@ func ProcurarJogador(listaJogadores []*models.Jogador, conn *websocket.Conn) *mo
 // <<BLOCO ONGOING>> {
 func IniciarRodada(sala *models.Sala) {
 	// Embaralha o baralho
-	// src := rand.NewSource(time.Now().UnixNano())
-	// r := rand.New(src)
+	src := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(src)
 
-	// r.Shuffle(len(sala.Jogo.Baralho), func(i, j int) {
-	// 	sala.Jogo.Baralho[i], sala.Jogo.Baralho[j] = sala.Jogo.Baralho[j], sala.Jogo.Baralho[i]
-	// })
+	r.Shuffle(len(sala.Jogo.Baralho), func(i, j int) {
+		sala.Jogo.Baralho[i], sala.Jogo.Baralho[j] = sala.Jogo.Baralho[j], sala.Jogo.Baralho[i]
+	})
+
+	if sala.Jogo.Estado == "PARTIDA_FINALIZADA" {
+		return
+	}
 
 	// Limpa as mãos dos jogadores antes de atribuir as cartas
 	for _, jogador := range sala.Jogadores {
@@ -221,18 +234,21 @@ func IniciarRodada(sala *models.Sala) {
 	sala.Jogo.Estado = "EM_ANDAMENTO"
 
 	rodada := models.Rodada{
-		Flor:        true,
-		Envido:      true,
-		Truco:       true,
-		ContraFlor:  true,
-		RealEnvido:  true,
-		FaltaEnvido: true,
-		Retruco:     false,
-		ValeQuatro:  false,
-		ValorDaMao:  1,
+		Flor:         true,
+		Envido:       true,
+		Truco:        true,
+		ContraFlor:   false,
+		RealEnvido:   true,
+		FaltaEnvido:  true,
+		Retruco:      false,
+		ValeQuatro:   false,
+		ValorDaMao:   1,
+		CadeiaEnvido: 0,
 		// AJUSTAR ISSO
 		VezJogador: AlternarVezJogador(sala),
 	}
+
+	rodada.TimeDaMao = rodada.VezJogador.Time
 
 	sala.Jogo.Rodadas = append(sala.Jogo.Rodadas, &rodada)
 
@@ -339,7 +355,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 		// PASSAR A VEZ PARA O PRÓXIMO JOGADOR (o jogador que ganhou a mão)
 		if jogadorGanhouMao == nil {
-			// rodadaAtual.VezJogador = salaExiste.Jogadores[0] Adicionar se escalar para 4 jogadores
 			rodadaAtual.Rodada = append(rodadaAtual.Rodada, 0)
 		} else if jogadorGanhouMao.Time == "TIME_01" {
 			rodadaAtual.VezJogador = jogadorGanhouMao
@@ -350,7 +365,16 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		}
 
 		NotificarJogadores(salaExiste)
+		log.Println(rodadaAtual.CartasJogada[0].Carta, rodadaAtual.CartasJogada[0].Jogador.Nome, rodadaAtual.CartasJogada[1].Carta, rodadaAtual.CartasJogada[1].Jogador.Nome)
+
 		rodadaAtual.CartasJogada = []models.CartaJogada{}
+
+		rodadaAtual.Envido = false
+		rodadaAtual.RealEnvido = false
+		rodadaAtual.FaltaEnvido = false
+
+		rodadaAtual.Flor = false
+
 		rodadaAtual.IdxJogador = 0
 
 	} else {
@@ -360,7 +384,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		case "TIME_02":
 			rodadaAtual.VezJogador = salaExiste.Jogo.Time01.Jogadores[0]
 		}
-		// Controla o número de jogadas em uma mão (2 no max)
 
 		rodadaAtual.IdxJogador = 1
 		NotificarJogadores(salaExiste)
@@ -372,13 +395,25 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	// VERIFICA SE ACABOU A RODADA E PASSA PARA O JOGADOR SEGUINTE (next na lista)
 	equipe, fimDaMao := TimeGanhadorMao(rodadaAtual.Rodada, &salaExiste.Jogo.Time01, &salaExiste.Jogo.Time02)
 	if fimDaMao {
-		log.Println("UAI ZE")
-		AtribuirPontoTime(equipe, rodadaAtual.ValorDaMao)
+		AtribuirPontoTime(equipe, rodadaAtual.ValorDaMao, salaExiste)
 		IniciarRodada(salaExiste)
 		return
 	}
 
+	RetirarCartaJogador(rodadaAtual.VezJogador, cartaJogada.Carta)
 	AvisarJogadorVez(rodadaAtual.VezJogador, rodadaAtual, salaExiste)
+}
+
+func RetirarCartaJogador(j *models.Jogador, c *models.Cartas) {
+	cartas := []models.Cartas{}
+
+	for _, carta := range j.Mao {
+		if carta.Valor != c.Valor || carta.Naipe != c.Naipe {
+			cartas = append(cartas, carta)
+		}
+	}
+
+	j.Mao = cartas
 }
 
 func TimeGanhadorMao(m []int, time01, time02 *models.Equipe) (*models.Equipe, bool) {
@@ -406,8 +441,33 @@ func TimeGanhadorMao(m []int, time01, time02 *models.Equipe) (*models.Equipe, bo
 	return time01, true
 }
 
-func AtribuirPontoTime(e *models.Equipe, pnts int) {
+func AtribuirPontoTime(e *models.Equipe, pnts int, s *models.Sala) {
 	e.Pontos += pnts
+
+	if pnts == 30 || e.Pontos >= 30 {
+		e.Pontos = 30
+		AcabouPartida(e, s)
+	}
+}
+
+func AcabouPartida(e *models.Equipe, s *models.Sala) {
+	s.Jogo.Estado = "PARTIDA_FINALIZADA"
+
+	payload := models.PartidaFinalizada{
+		Type: "PARTIDA_FINALIZADA",
+	}
+
+	for _, j := range s.Jogadores {
+		if j == e.Jogadores[0] {
+			payload.Mensagem = "VOCE_GANHOU"
+		} else {
+			payload.Mensagem = "VOCE_PERDEU"
+		}
+
+		data, _ := json.Marshal(payload)
+		j.Conn.WriteMessage(websocket.TextMessage, data)
+
+	}
 }
 
 func VerificarMao(cartasJogada []models.CartaJogada) *models.Jogador {
@@ -595,6 +655,7 @@ func AceitarAposta(m []byte, conn *websocket.Conn) {
 	if sala.Jogo.Estado != StatusAguardandoAposta ||
 		r.ApostaAtual.ParaTime != j.Time ||
 		r.ApostaAtual.Tipo != payload.TipoAposta {
+		responderErro(conn, "Foi impossível de aceitar a aposta.")
 		return
 	}
 	// só entra aqui se for tudo válido
@@ -605,11 +666,169 @@ func AceitarAposta(m []byte, conn *websocket.Conn) {
 		AvaliarRetruco(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
 	case TipoValeQuatro:
 		AvaliarValeQuatro(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
+	case TipoEnvido:
+		AvaliarEnvido(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar, TipoEnvido)
+	case TipoRealEnvido:
+		AvaliarEnvido(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar, TipoRealEnvido)
+	case TipoFaltaEnvido:
+		AvaliarEnvido(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar, TipoFaltaEnvido)
+	case TipoFlor:
+		AvaliarFlor(sala, r, r.ApostaAtual.ParaTime, payload.Aceitar)
 	}
-
 }
 
 // ANDAMENTO
+func ContarMaoFlor(m []models.Cartas) int {
+	if len(m) != 3 {
+		return 0 // Flor exige 3 cartas
+	}
+
+	naipeBase := m[0].Naipe
+	valorFlor := 0
+
+	for _, carta := range m {
+		if carta.Naipe != naipeBase {
+			return 0 // Se algum naipe for diferente, não é Flor
+		}
+
+		switch carta.Valor {
+		case 10, 11, 12:
+			// não somam pontos
+		default:
+			valorFlor += carta.Valor
+		}
+	}
+
+	valorFlor += 20 // bônus da Flor
+	return valorFlor
+}
+
+func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, aceitou bool) {
+	resposta := models.RespostaAposta{
+		Type:       "RESPOSTA_APOSTA",
+		TipoAposta: TipoFlor,
+		Aceito:     aceitou,
+	}
+
+	pontosFlor := 4
+
+	// Se aceitou então é uma Contra-Flor
+	if aceitou {
+		pontosFlor = 6
+
+		time01 := ContarMaoFlor(sala.Jogo.Time01.Jogadores[0].Mao)
+		time02 := ContarMaoFlor(sala.Jogo.Time02.Jogadores[0].Mao)
+
+		if time01 > time02 {
+			time = Time01
+		} else if time02 > time01 {
+			time = Time02
+		} else {
+			time = r.TimeDaMao
+		}
+
+	}
+
+	switch time {
+	case Time01:
+		AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
+	case Time02:
+		AtribuirPontoTime(&sala.Jogo.Time01, pontosFlor, sala)
+	}
+
+	NotificarRespostaAposta(sala, resposta, time)
+}
+
+func ContarPontosCarta(jogador *models.Jogador) int {
+	// cria dicionario (key = naipe, value = valor das cartas do naipe)
+	naipes := make(map[string][]int)
+
+	// define a pontuação caso o jogador não tenha 2 do mesmo naipe
+	maiorCarta := 0
+	for _, c := range jogador.Mao {
+		valor := 0
+		switch c.Valor {
+		case 10, 11, 12:
+			valor = 0
+		default:
+			valor = c.Valor
+		}
+		naipes[c.Naipe] = append(naipes[c.Naipe], valor)
+		if valor > maiorCarta {
+			maiorCarta = valor
+		}
+	}
+
+	// define a pontuação de envido, caso tenha
+	maiorPontuacao := 0
+	for _, valores := range naipes {
+		if len(valores) >= 2 {
+			sort.Sort(sort.Reverse(sort.IntSlice(valores)))
+			pontuacao := valores[0] + valores[1] + 20
+			if pontuacao > maiorPontuacao {
+				maiorPontuacao = pontuacao
+			}
+		}
+	}
+
+	if maiorPontuacao > 0 {
+		return maiorPontuacao
+	}
+	return maiorCarta
+}
+
+func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, aceitou bool, tipoAposta string) {
+	resposta := models.RespostaAposta{
+		Type:       "RESPOSTA_APOSTA",
+		TipoAposta: tipoAposta,
+		Aceito:     aceitou,
+	}
+
+	timeAposta := time
+
+	var pontosEnvido int
+
+	switch tipoAposta {
+	case TipoEnvido:
+		pontosEnvido = 2
+	case TipoRealEnvido:
+		pontosEnvido = 5
+	case TipoFaltaEnvido:
+		pontosEnvido = 30
+	}
+
+	if aceitou {
+
+		time01 := ContarPontosCarta(sala.Jogo.Time01.Jogadores[0])
+		time02 := ContarPontosCarta(sala.Jogo.Time02.Jogadores[0])
+
+		if time01 > time02 {
+			time = "TIME_01"
+		} else if time02 > time01 {
+			time = "TIME_02"
+		} else {
+			time = r.TimeDaMao
+		}
+
+	} else {
+		pontosEnvido = r.CadeiaEnvido
+	}
+
+	switch time {
+	case Time01:
+		AtribuirPontoTime(&sala.Jogo.Time01, pontosEnvido, sala)
+	case Time02:
+		AtribuirPontoTime(&sala.Jogo.Time02, pontosEnvido, sala)
+	}
+
+	NotificarRespostaAposta(sala, resposta, timeAposta)
+
+	r.Envido = false
+	r.RealEnvido = false
+	r.FaltaEnvido = false
+
+	sala.Jogo.Estado = "EM_ANDAMENTO"
+}
 
 func AvaliarValeQuatro(sala *models.Sala, r *models.Rodada, time string, aceitou bool) {
 	resposta := models.RespostaAposta{
@@ -626,13 +845,14 @@ func AvaliarValeQuatro(sala *models.Sala, r *models.Rodada, time string, aceitou
 		r.ApostaAtual.Estado = "RECUSADO"
 		switch time {
 		case Time01:
-			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao, sala)
 		case Time02:
-			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao, sala)
 		}
 
 		NotificarRespostaAposta(sala, resposta, time)
 		IniciarRodada(sala)
+		return
 	}
 
 	NotificarRespostaAposta(sala, resposta, time)
@@ -654,13 +874,14 @@ func AvaliarRetruco(sala *models.Sala, r *models.Rodada, time string, aceitou bo
 		r.ApostaAtual.Estado = "RECUSADO"
 		switch time {
 		case Time01:
-			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao, sala)
 		case Time02:
-			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao, sala)
 		}
 
 		NotificarRespostaAposta(sala, resposta, time)
 		IniciarRodada(sala)
+		return
 	}
 
 	NotificarRespostaAposta(sala, resposta, time)
@@ -681,13 +902,14 @@ func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, aceitou bool
 		r.ApostaAtual.Estado = "RECUSADO"
 		switch time {
 		case Time01:
-			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao, sala)
 		case Time02:
-			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao)
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao, sala)
 		}
 
 		NotificarRespostaAposta(sala, resposta, time)
 		IniciarRodada(sala)
+		return
 	}
 
 	NotificarRespostaAposta(sala, resposta, time)
@@ -706,6 +928,7 @@ func NotificarRespostaAposta(sala *models.Sala, resposta models.RespostaAposta, 
 	// Notificar Resposta da Aposta
 	for _, jogador := range adversarios {
 		jogador.Conn.WriteMessage(websocket.TextMessage, data)
+
 	}
 
 	sala.Jogo.Estado = "EM_ANDAMENTO"
@@ -798,15 +1021,15 @@ func ChamarRetruco(m []byte, conn *websocket.Conn) {
 
 	jogadorDoTruco := BuscarJogador(sala, conn)
 
-	//if rodadaAtual.VezJogador != jogadorDoTruco {
-	// NÃO É A VEZ DO JOGADOR
-	//	return
-	//}
+	if rodadaAtual.VezJogador != jogadorDoTruco {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
 
-	//if !(rodadaAtual.ApostaAtual.Tipo == TipoTruco) && !(jogadorDoTruco.Time == rodadaAtual.ApostaAtual.ParaTime) {
-	//	responderErro(conn, "Pedido de Retruco inválido")
-	//	return
-	//}
+	if rodadaAtual.ApostaAtual.Tipo != TipoTruco || jogadorDoTruco.Time != rodadaAtual.ApostaAtual.ParaTime {
+		responderErro(conn, "Pedido de Retruco inválido")
+		return
+	}
 
 	switch jogadorDoTruco.Time {
 	case Time01:
@@ -851,7 +1074,7 @@ func ChamarValeQuatro(m []byte, conn *websocket.Conn) {
 		return
 	}
 
-	if !(rodadaAtual.ApostaAtual.Tipo == TipoRetruco) && !(jogadorDoTruco.Time == rodadaAtual.ApostaAtual.ParaTime) {
+	if rodadaAtual.ApostaAtual.Tipo != TipoRetruco || jogadorDoTruco.Time != rodadaAtual.ApostaAtual.ParaTime {
 		responderErro(conn, "Pedido de Vale Quatro inválido")
 		return
 	}
@@ -876,9 +1099,183 @@ func ChamarValeQuatro(m []byte, conn *websocket.Conn) {
 	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
 }
 
-func ChamarEnvido(m []byte, conn *websocket.Conn) {}
-func CantarFlor(m []byte, conn *websocket.Conn)   {}
+func CantarFlor(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
 
-func CantarContraFlor(m []byte, conn *websocket.Conn)  {}
-func ChamarRealEnvido(m []byte, conn *websocket.Conn)  {}
-func ChamarFaltaEnvido(m []byte, conn *websocket.Conn) {}
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Flor {
+		responderErro(conn, "Não é possível pedir Flor")
+	}
+
+	jogadorDaFlor := BuscarJogador(sala, conn)
+
+	if rodadaAtual.VezJogador != jogadorDaFlor {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch jogadorDaFlor.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoFlor,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoFlor)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoFlor,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoFlor)
+	}
+
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+func CantarContraFlor(m []byte, conn *websocket.Conn) {}
+
+func ChamarEnvido(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Envido {
+		responderErro(conn, "Não é possível pedir Envido")
+	}
+
+	jogadorDoEnvido := BuscarJogador(sala, conn)
+
+	log.Println(rodadaAtual.VezJogador.Nome, jogadorDoEnvido.Nome)
+
+	if rodadaAtual.VezJogador.Conn != conn {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch jogadorDoEnvido.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoEnvido)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoEnvido)
+	}
+
+	rodadaAtual.CadeiaEnvido += 1
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+func ChamarRealEnvido(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+
+	jogadorDoEnvido := BuscarJogador(sala, conn)
+
+	if !rodadaAtual.RealEnvido {
+		responderErro(conn, "Não é possível pedir Real envido")
+	}
+
+	if rodadaAtual.VezJogador != jogadorDoEnvido {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch jogadorDoEnvido.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoRealEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoRealEnvido)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoRealEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoRealEnvido)
+	}
+
+	rodadaAtual.CadeiaEnvido += 1
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+func ChamarFaltaEnvido(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+
+	jogadorDoEnvido := BuscarJogador(sala, conn)
+
+	if !rodadaAtual.FaltaEnvido {
+		responderErro(conn, "Não é possível pedir Falta envido")
+	}
+
+	if rodadaAtual.VezJogador != jogadorDoEnvido {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch jogadorDoEnvido.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoFaltaEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, TipoFaltaEnvido)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     TipoFaltaEnvido,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, TipoFaltaEnvido)
+	}
+
+	rodadaAtual.CadeiaEnvido += 1
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}

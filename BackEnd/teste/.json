@@ -1,0 +1,20 @@
+{
+  "type": "MAO_RODADA",
+  "mao": [
+    {
+      "valor": 2,
+      "naipe": "Copas",
+      "forca": 8
+    },
+    {
+      "valor": 4,
+      "naipe": "Copas",
+      "forca": 0
+    },
+    {
+      "valor": 6,
+      "naipe": "Copas",
+      "forca": 2
+    }
+  ]
+}

@@ -34,6 +34,11 @@ type SalasDisponiveis struct {
 	SalasDisponiveis map[string]int `json:"salasDisponiveis"`
 }
 
+type PartidaFinalizada struct {
+	Type     string `json:"type"`
+	Mensagem string `json:"message"`
+}
+
 type CartaResposta struct {
 	Valor int    `json:"valor"`
 	Naipe string `json:"naipe"`

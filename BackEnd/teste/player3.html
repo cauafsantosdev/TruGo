@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ENTRAR EQUIPE JG1</title>
+</head>
+<body>
+  <script>
+     const socket = new WebSocket("ws://localhost:8080/ws");
+
+      let idx = 0;
+
+      let minhasJogadas = [];
+
+      socket.onopen = () => {
+        console.log("Conexão aberta");
+
+        socket.send(JSON.stringify({
+          type: "ENTRAR_SALA",
+          nome: "Steven",
+          idSala: "2020",
+        }));
+
+        socket.send(JSON.stringify({
+          type: "ENTRAR_EQUIPE",
+          idSala: "2020",
+          TimeEscolhido: "TIME_02",
+        }));
+      };
+
+      socket.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        console.log("📨", e.data);
+
+        if (msg.type === "MAO_RODADA") {
+        minhasJogadas = msg.mao;
+        console.log("Mão atualizada:", minhasJogadas);
+
+      } else if (msg.type === "SUA_VEZ") {
+        if (idx == 0) {
+          socket.send(JSON.stringify({
+              type: "CHAMAR_RETRUCO",
+              idSala: "2020",
+            }));
+          idx++
+        } else {
+          const carta = minhasJogadas.shift();
+          if (carta) {
+            socket.send(JSON.stringify({
+              type: "FAZER_JOGADA",
+              idSala: "2020",
+              cartaJogada: carta,
+            }));
+        }
+      }} else if (msg.type === "APOSTA") {
+          socket.send(JSON.stringify({
+              type: "ACEITAR_APOSTA",
+              idSala: "2020",
+              tipoAposta: "TRUCO",
+              aceitar: true,
+            }));
+            retruco = true
+        } else if (msg.type === "RESPOSTA_APOSTA") {
+          const carta = minhasJogadas.shift(); // pega a próxima carta
+          if (carta) {
+            socket.send(JSON.stringify({
+              type: "FAZER_JOGADA",
+              idSala: "2020",
+              cartaJogada: carta,
+            }));
+          }
+      }
+    }
+
+      socket.onclose = () => console.log("Socket fechado!");
+  </script>
+</body>
+</html>
