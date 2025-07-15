@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"slices"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Constantes para controle do estado do jogo
 const (
 	StatusAguardandoAposta = "AGUARDANDO_RESPOSTA_APOSTA"
 	EstadoQuero            = "QUERO"
@@ -32,6 +34,7 @@ const (
 	Time02 = "TIME_02"
 )
 
+// Cria sala
 func CriarSala(m []byte, conn *websocket.Conn) {
 	var payload models.CriarSalaID
 
@@ -68,6 +71,7 @@ func CriarSala(m []byte, conn *websocket.Conn) {
 	conn.WriteMessage(websocket.TextMessage, data)
 }
 
+// Entra na sala
 func EntrarSala(m []byte, conn *websocket.Conn) {
 	var payload models.EntrarSala
 
@@ -113,6 +117,7 @@ func EntrarSala(m []byte, conn *websocket.Conn) {
 	conn.WriteMessage(websocket.TextMessage, data)
 }
 
+// Escolhe o time
 func EscolherTime(m []byte, conn *websocket.Conn) {
 	var payload models.EscolherEquipe
 
@@ -164,6 +169,7 @@ func EscolherTime(m []byte, conn *websocket.Conn) {
 	}
 }
 
+// Mostra todas as salas disponiveis
 func ListarSalas(conn *websocket.Conn) {
 	salasDisponiveis := make(map[string]int)
 
@@ -179,6 +185,7 @@ func ListarSalas(conn *websocket.Conn) {
 	conn.WriteMessage(websocket.TextMessage, data)
 }
 
+// Inicia a partida
 func ComecarPartida(sala *models.Sala) {
 	// Inicia a partida
 	sala.Status = "EM_ANDAMENTO"
@@ -192,7 +199,7 @@ func ComecarPartida(sala *models.Sala) {
 	IniciarRodada(sala)
 }
 
-// REFATORAR DEPOIS
+// Função para procurar um jogador
 func ProcurarJogador(listaJogadores []*models.Jogador, conn *websocket.Conn) *models.Jogador {
 	for _, jogador := range listaJogadores {
 		if jogador.Conn == conn {
@@ -203,7 +210,7 @@ func ProcurarJogador(listaJogadores []*models.Jogador, conn *websocket.Conn) *mo
 	return nil
 }
 
-// <<BLOCO ONGOING>> {
+// Começa uma rodada
 func IniciarRodada(sala *models.Sala) {
 	// Embaralha o baralho
 	src := rand.NewSource(time.Now().UnixNano())
@@ -242,6 +249,7 @@ func IniciarRodada(sala *models.Sala) {
 	EnviarMaosAosJogadores(sala)
 	sala.Jogo.Estado = "EM_ANDAMENTO"
 
+	// Reseta os status da rodada
 	rodada := models.Rodada{
 		Flor:              true,
 		Envido:            true,
@@ -254,22 +262,20 @@ func IniciarRodada(sala *models.Sala) {
 		ValeQuatro:        false,
 		ValorDaMao:        1,
 		CadeiaEnvido:      []string{},
-		EstadoFlor: "",
-		TimeChamouFlor: 0,
-		CartasJogadas: []models.CartaJogada{},
-		CartasEmDisputa: []models.CartaJogada{},
-		
+		EstadoFlor:        "",
+		CartasJogadas:     []models.CartaJogada{},
+		CartasEmDisputa:   []models.CartaJogada{},
 		VezJogador:        AlternarVezJogador(sala),
 	}
 
 	rodada.TimeDaMao = rodada.VezJogador.Time
-
-	sala.Jogo.Rodadas = append(sala.Jogo.Rodadas, &rodada)
+	sala.Jogo.Rodada = &rodada
 
 	AvisarJogadorVez(rodada.VezJogador, &rodada, sala)
 	NotificarJogadores(sala)
 }
 
+// Mostra as cartas para os jogadores
 func EnviarMaosAosJogadores(s *models.Sala) {
 	for _, jogador := range s.Jogadores {
 		payload := models.MaoDaRodada{
@@ -286,6 +292,7 @@ func EnviarMaosAosJogadores(s *models.Sala) {
 	}
 }
 
+// Passa o turno para o próximo jogador
 func AlternarVezJogador(s *models.Sala) *models.Jogador {
 	if s.Jogo.IdxJogador == 0 {
 		s.Jogo.IdxJogador ^= 1 // XOR 0 ↔ 1
@@ -295,6 +302,7 @@ func AlternarVezJogador(s *models.Sala) *models.Jogador {
 	return s.Jogo.Time02.Jogadores[0]
 }
 
+// Avisa o jogador que é sua vez
 func AvisarJogadorVez(j *models.Jogador, r *models.Rodada, s *models.Sala) {
 	payload := models.StatusRodada{
 		Type:              "SUA_VEZ",
@@ -307,6 +315,7 @@ func AvisarJogadorVez(j *models.Jogador, r *models.Rodada, s *models.Sala) {
 	j.Conn.WriteMessage(websocket.TextMessage, data)
 }
 
+// Mostra o placar do jogo
 func MostrarPlacar(s *models.Sala) map[string]int {
 	placar := make(map[string]int)
 
@@ -316,6 +325,7 @@ func MostrarPlacar(s *models.Sala) map[string]int {
 	return placar
 }
 
+// Mostra as apostas disponíveis na rodada
 func ApostasAtivas(r *models.Rodada) map[string]bool {
 	return map[string]bool{
 		"Flor":              r.Flor,
@@ -330,8 +340,7 @@ func ApostasAtivas(r *models.Rodada) map[string]bool {
 	}
 }
 
-// <<BLOCO ONGOING>> }
-
+// Função para jogar uma carta
 func FazerJogada(m []byte, conn *websocket.Conn) {
 	var payload models.FazerJogada
 	json.Unmarshal(m, &payload)
@@ -339,9 +348,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	salaExiste := VerificarSalaExiste(payload.IDSala, conn)
 
 	rodadaAtual := RodadaAtual(salaExiste)
-
-	// LÓGICA DA JOGADA AQUI
-	// VERIFICAR SE O JOGADOR CHAMOU ALGUMA APOSTA... # payload.ApostaPedida
 
 	if salaExiste == nil {
 		// Não existe a sala
@@ -355,17 +361,12 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		return
 	}
 
-	// VERIFICAR SE O JOGADOR JOGOU UMA CARTA QUE ESTÁ NA SUA MÃO... # salaExiste.Jogo.JogadorVez.Mao (fazer um FOR)
-	cartaJogada, err := VerificarCartaJogada(rodadaAtual.VezJogador, payload)
-	if err {
-		return
-	}
-
-	// ADICIONAR A CARTA JOGADA AO # RodadaAtual(salaExiste).CartasJogada (usar append)
+	// Adiciona carta jogada à mesa e coloca em disputa
+	cartaJogada, _ := VerificarCartaJogada(rodadaAtual.VezJogador, payload)
 	rodadaAtual.CartasEmDisputa = append(RodadaAtual(salaExiste).CartasEmDisputa, cartaJogada)
 	rodadaAtual.CartasJogadas = append(RodadaAtual(salaExiste).CartasJogadas, cartaJogada)
 
-	// CHAMAR FUNÇÃO DE VERIFICAR O ESTADO DA RODADA, CASO O JOGADOR FOR O ÚLTIMO A JOGAR (se ganhou a mão ou se perdeu)
+	// Verifica quem ganhou, caso o jogador seja o último da mão
 	if rodadaAtual.IdxJogador == 1 {
 		jogadorGanhouMao := VerificarMao(rodadaAtual.CartasEmDisputa)
 
@@ -407,9 +408,7 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 	}
 
-	// NOTIFICAR TODOS OS JOGADORES SOBRE A JOGADA FEITA (função NotificarJogadores)
-
-	// VERIFICA SE ACABOU A RODADA E PASSA PARA O JOGADOR SEGUINTE (next na lista)
+	// Verifica se ouve um vencedor da rodada e passa para a próxima
 	equipe, fimDaMao := TimeGanhadorMao(rodadaAtual.Rodada, &salaExiste.Jogo.Time01, &salaExiste.Jogo.Time02)
 	if fimDaMao {
 		AtribuirPontoTime(equipe, rodadaAtual.ValorDaMao, salaExiste)
@@ -421,6 +420,7 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	AvisarJogadorVez(rodadaAtual.VezJogador, rodadaAtual, salaExiste)
 }
 
+// Remove a carta da mão do jogador
 func RetirarCartaJogador(j *models.Jogador, c *models.Cartas) {
 	cartas := []models.Cartas{}
 
@@ -433,6 +433,7 @@ func RetirarCartaJogador(j *models.Jogador, c *models.Cartas) {
 	j.Mao = cartas
 }
 
+// Define o time vencedor da mão
 func TimeGanhadorMao(m []int, time01, time02 *models.Equipe) (*models.Equipe, bool) {
 	time01Pnts := 0
 	time02Pnts := 0
@@ -498,6 +499,7 @@ func TimeGanhadorMao(m []int, time01, time02 *models.Equipe) (*models.Equipe, bo
 	return time01, true
 }
 
+// Atribui os tentos ao time vencedor, caso chegue a 30 o time é declarado vencedor
 func AtribuirPontoTime(e *models.Equipe, pnts int, s *models.Sala) {
 	e.Pontos += pnts
 
@@ -507,6 +509,7 @@ func AtribuirPontoTime(e *models.Equipe, pnts int, s *models.Sala) {
 	}
 }
 
+// Encerra a partida
 func AcabouPartida(e *models.Equipe, s *models.Sala) {
 	s.Jogo.Estado = "PARTIDA_FINALIZADA"
 
@@ -527,6 +530,7 @@ func AcabouPartida(e *models.Equipe, s *models.Sala) {
 	}
 }
 
+// Determina o vencedor de uma mão
 func VerificarMao(cartasJogada []models.CartaJogada) *models.Jogador {
 	if cartasJogada[0].Carta.Forca > cartasJogada[1].Carta.Forca {
 		return cartasJogada[0].Jogador
@@ -537,6 +541,7 @@ func VerificarMao(cartasJogada []models.CartaJogada) *models.Jogador {
 	return nil
 }
 
+// Verifica se a carta jogada é válida
 func VerificarCartaJogada(vezJogador *models.Jogador, payload models.FazerJogada) (models.CartaJogada, bool) {
 	cartaJogada := models.Cartas{
 		Valor: payload.CartaJogada.Valor,
@@ -544,18 +549,17 @@ func VerificarCartaJogada(vezJogador *models.Jogador, payload models.FazerJogada
 		Forca: payload.CartaJogada.Forca,
 	}
 
-	for _, carta := range vezJogador.Mao {
-		if carta == cartaJogada {
+	if slices.Contains(vezJogador.Mao, cartaJogada) {
 			return models.CartaJogada{
 				Jogador: vezJogador,
 				Carta:   &cartaJogada,
 			}, false
 		}
-	}
 
 	return models.CartaJogada{}, true
 }
 
+// Notifica os jogadores do status da partida
 func NotificarJogadores(sala *models.Sala) {
 	rodadaAtual := RodadaAtual(sala)
 
@@ -574,6 +578,7 @@ func NotificarJogadores(sala *models.Sala) {
 	}
 }
 
+// Verifica se é a vez do jogador
 func VerificarVezJogadorRodada(sala *models.Sala, conn *websocket.Conn) bool {
 	if !VerificarJogadorNaSala(sala, conn) {
 		responderErro(conn, "O jogador não está na partida")
@@ -586,6 +591,7 @@ func VerificarVezJogadorRodada(sala *models.Sala, conn *websocket.Conn) bool {
 	return true
 }
 
+// Verifica se um jogador está na sala
 func VerificarJogadorNaSala(sala *models.Sala, conn *websocket.Conn) bool {
 	for _, jogador := range sala.Jogadores {
 		if jogador.Conn == conn {
@@ -596,10 +602,12 @@ func VerificarJogadorNaSala(sala *models.Sala, conn *websocket.Conn) bool {
 	return false
 }
 
+// Retorna a rodada atual
 func RodadaAtual(sala *models.Sala) *models.Rodada {
-	return sala.Jogo.Rodadas[len(sala.Jogo.Rodadas)-1]
+	return sala.Jogo.Rodada
 }
 
+// Verifica se a sala existe
 func VerificarSalaExiste(idSala string, conn *websocket.Conn) *models.Sala {
 	sala, ok := models.Salas[idSala]
 
@@ -616,6 +624,7 @@ func VerificarSalaExiste(idSala string, conn *websocket.Conn) *models.Sala {
 	return sala
 }
 
+// Responde erro
 func responderErro(conn *websocket.Conn, msg string, args ...interface{}) {
 	resposta := models.Resposta{
 		Type: "error",
@@ -625,6 +634,7 @@ func responderErro(conn *websocket.Conn, msg string, args ...interface{}) {
 	conn.WriteMessage(websocket.TextMessage, data)
 }
 
+// Retorna as cartas jogadas na mesa
 func CartasNaMesa(r *models.Rodada) []models.Jogada {
 	lista := []models.Jogada{}
 
@@ -647,6 +657,7 @@ func CartasNaMesa(r *models.Rodada) []models.Jogada {
 	return lista
 }
 
+// Cria o baralho do jogo
 func CriarBaralho() []models.Cartas {
 	naipes := []string{"Copas", "Espadas", "Paus", "Ouros"}
 	valores := []int{1, 2, 3, 4, 5, 6, 7, 10, 11, 12}
@@ -694,7 +705,7 @@ func CriarBaralho() []models.Cartas {
 	return baralho
 }
 
-// ONGOING
+// Responde as apostas
 func ResponderAposta(m []byte, conn *websocket.Conn) {
 	var payload models.ResponderAposta
 
@@ -726,92 +737,7 @@ func ResponderAposta(m []byte, conn *websocket.Conn) {
 	}
 }
 
-// ANDAMENTO
-func ContarPontosFlor(m []models.Cartas) int {
-	if len(m) != 3 {
-		return 0 // Flor exige 3 cartas
-	}
-
-	naipeBase := m[0].Naipe
-	valorFlor := 0
-
-	for _, carta := range m {
-		if carta.Naipe != naipeBase {
-			return 0 // Se algum naipe for diferente, não é Flor
-		}
-
-		switch carta.Valor {
-		case 10, 11, 12:
-			// não somam pontos
-		default:
-			valorFlor += carta.Valor
-		}
-	}
-
-	valorFlor += 20 // bônus da Flor
-	return valorFlor
-}
-
-func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, quero bool, tipoAposta string) {
-	resposta := models.RespostaAposta{
-		Type:       "RESPOSTA_APOSTA",
-		TipoAposta: TipoFlor,
-		Quero:      quero,
-	}
-
-	pontosFlor := 3
-	resto := false
-
-	if quero && resposta.TipoAposta == TipoFlor && r.EstadoFlor == "FLOR" {
-		switch r.TimeChamouFlor {
-		case 1:
-			sala.Jogo.Time02.Pontos += 3
-		case 2:
-			sala.Jogo.Time01.Pontos += 3
-		}
-
-	} else if quero {
-		switch r.EstadoFlor {
-		case "CONTRA_FLOR":
-			pontosFlor = 6
-		case "CONTRA_FLOR_AL_RESTO":
-			resto = true
-		}
-
-		time01 := ContarPontosFlor(sala.Jogo.Time01.Jogadores[0].Mao)
-		time02 := ContarPontosFlor(sala.Jogo.Time02.Jogadores[0].Mao)
-
-		if time01 > time02 {
-			time = Time01
-		} else if time02 > time01 {
-			time = Time02
-		} else {
-			time = r.TimeDaMao
-		}
-	}
-
-	switch time {
-	case Time01:
-		if resto {
-			AtribuirPontoTime(&sala.Jogo.Time01, 30-sala.Jogo.Time02.Pontos, sala)
-		} else {
-			AtribuirPontoTime(&sala.Jogo.Time01, pontosFlor, sala)
-		}
-	case Time02:
-		if resto {
-			AtribuirPontoTime(&sala.Jogo.Time02, 30-sala.Jogo.Time01.Pontos, sala)
-		} else {
-			AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
-		}
-	}
-
-	r.Flor = false
-	r.ContraFlor = false
-	r.ContraFlorAlResto = false
-
-	NotificarRespostaAposta(sala, resposta, time)
-}
-
+// conta os pontos do Envido de um jogador
 func ContarPontosEnvido(jogador *models.Jogador) int {
 	// cria dicionario (key = naipe, value = valor das cartas do naipe)
 	naipes := make(map[string][]int)
@@ -850,6 +776,276 @@ func ContarPontosEnvido(jogador *models.Jogador) int {
 	return maiorCarta
 }
 
+// Conta os pontos da FLor
+func ContarPontosFlor(m []models.Cartas) int {
+	valorFlor := 0
+
+	for _, carta := range m {
+		switch carta.Valor {
+		case 10, 11, 12:
+			// não somam pontos
+		default:
+			valorFlor += carta.Valor
+		}
+	}
+
+	valorFlor += 20 // bônus da Flor
+	return valorFlor
+}
+
+// Notifica se o jogador quis, não quis ou aumentou
+func NotificarRespostaAposta(sala *models.Sala, resposta models.RespostaAposta, time string) {
+	data, _ := json.Marshal(resposta)
+
+	var adversarios []*models.Jogador
+	if time == Time01 {
+		adversarios = sala.Jogo.Time02.Jogadores
+	} else {
+		adversarios = sala.Jogo.Time01.Jogadores
+	}
+
+	// Notificar Resposta da Aposta
+	for _, jogador := range adversarios {
+		jogador.Conn.WriteMessage(websocket.TextMessage, data)
+
+	}
+
+	sala.Jogo.Estado = "EM_ANDAMENTO"
+}
+
+// Manda o canto para o adversário
+func EnviarAposta(time string, sala *models.Sala, tipoAposta string) {
+	aposta := models.EnviarAposta{
+		Type:         "APOSTA",
+		TipoDeAposta: tipoAposta,
+	}
+	var data []byte
+	data, _ = json.Marshal(aposta)
+
+	// Envia a aposta para o time adversário
+	for _, jogador := range sala.Jogadores {
+		if jogador.Time == time {
+			jogador.Conn.WriteMessage(websocket.TextMessage, data)
+		}
+	}
+}
+
+// Procura jogador na sala
+func BuscarJogador(sala *models.Sala, conn *websocket.Conn) *models.Jogador {
+	for _, jogador := range sala.Jogadores {
+		if jogador.Conn == conn {
+			return jogador
+		}
+	}
+
+	return nil
+}
+
+// Canta Truco
+func CantarTruco(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Truco {
+		responderErro(conn, "Não é possível pedir Truco")
+	}
+
+	jogadorDoTruco := BuscarJogador(sala, conn)
+
+	time := jogadorDoTruco.Time
+
+	if time == Time01 && sala.Jogo.Time01.Pontos == 29 {
+		sala.Jogo.Time01.Pontos = 15
+	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
+		sala.Jogo.Time02.Pontos = 15
+	}
+
+	if rodadaAtual.VezJogador != jogadorDoTruco {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, payload.Type)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, payload.Type)
+	}
+
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+// Canta Envido
+func CantarEnvido(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Envido {
+		responderErro(conn, "Não é possível pedir Envido")
+	}
+
+	jogadorDoEnvido := BuscarJogador(sala, conn)
+	time := jogadorDoEnvido.Time
+
+	if time == Time01 && sala.Jogo.Time01.Pontos == 29 {
+		sala.Jogo.Time01.Pontos = 15
+	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
+		sala.Jogo.Time02.Pontos = 15
+	}
+
+	log.Println(rodadaAtual.VezJogador.Nome, jogadorDoEnvido.Nome)
+
+	if rodadaAtual.VezJogador.Conn != conn {
+		responderErro(conn, "Não é a vez do jogador")
+		return
+	}
+
+	switch time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		EnviarAposta(Time02, sala, payload.Type)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		EnviarAposta(Time01, sala, payload.Type)
+	}
+
+	rodadaAtual.CadeiaEnvido = append(rodadaAtual.CadeiaEnvido, payload.Type)
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+}
+
+// Canta Flor
+func CantarFlor(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+
+	json.Unmarshal(m, &payload)
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+
+	if sala == nil {
+		return
+	}
+
+	rodadaAtual := RodadaAtual(sala)
+	if !rodadaAtual.Flor {
+		responderErro(conn, "Não é possível pedir Flor")
+	}
+
+	jogadorDaFlor := BuscarJogador(sala, conn)
+	var outroJogador *models.Jogador
+
+	for _, jogador := range sala.Jogadores {
+		if jogador != jogadorDaFlor {
+			outroJogador = jogador
+		}
+	}
+
+	if !outroJogador.TemFlor {
+		time := jogadorDaFlor.Time
+
+		if time == Time01 {
+			sala.Jogo.Time01.Pontos += 3
+		} else {
+			sala.Jogo.Time02.Pontos += 3
+		}
+	} else {
+		switch jogadorDaFlor.Time {
+		case Time01:
+			rodadaAtual.ApostaAtual = models.Aposta{
+				Tipo:     payload.Type,
+				Estado:   "AGUARDANDO_RESPOSTA",
+				ParaTime: Time02,
+			}
+			EnviarAposta(Time02, sala, payload.Type)
+		case Time02:
+			rodadaAtual.ApostaAtual = models.Aposta{
+				Tipo:     payload.Type,
+				Estado:   "AGUARDANDO_RESPOSTA",
+				ParaTime: Time01,
+			}
+			EnviarAposta(Time01, sala, payload.Type)
+		}
+
+		rodadaAtual.EstadoFlor = payload.Type
+		sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+	}
+}
+
+// resolve a disputa de Truco
+func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, quero bool, tipoAposta string) {
+	resposta := models.RespostaAposta{
+		Type:       "RESPOSTA_APOSTA",
+		TipoAposta: TipoTruco,
+		Quero:      quero,
+	}
+
+	if quero {
+		r.ApostaAtual.Estado = EstadoQuero
+		switch tipoAposta {
+		case TipoTruco:
+			r.ValorDaMao = 2
+		case TipoRetruco:
+			r.ValorDaMao = 3
+		case TipoValeQuatro:
+			r.ValorDaMao = 4
+		}
+
+	} else {
+		// Caso o Truco seja recusado, atribui o valor da mão
+		r.ApostaAtual.Estado = "RECUSADO"
+		switch time {
+		case Time01:
+			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao, sala)
+		case Time02:
+			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao, sala)
+		}
+
+		NotificarRespostaAposta(sala, resposta, time)
+		IniciarRodada(sala)
+		return
+	}
+
+	r.Truco = false
+	r.Retruco = false
+	r.ValeQuatro = false
+
+	NotificarRespostaAposta(sala, resposta, time)
+}
+
+// resolve a disputa de Envido
 func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, quero bool, tipoAposta string) {
 	resposta := models.RespostaAposta{
 		Type:       "RESPOSTA_APOSTA",
@@ -934,250 +1130,72 @@ func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, quero bool,
 	sala.Jogo.Estado = "EM_ANDAMENTO"
 }
 
-func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, quero bool, tipoAposta string) {
+// determina vencedor da disputa de Flor
+func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, quero bool, tipoAposta string) {
 	resposta := models.RespostaAposta{
 		Type:       "RESPOSTA_APOSTA",
-		TipoAposta: TipoTruco,
+		TipoAposta: TipoFlor,
 		Quero:      quero,
 	}
 
-	if quero {
-		r.ApostaAtual.Estado = EstadoQuero
-		switch tipoAposta {
-		case TipoTruco:
-			r.ValorDaMao = 2
-		case TipoRetruco:
-			r.ValorDaMao = 3
-		case TipoValeQuatro:
-			r.ValorDaMao = 4
+	pontosFlor := 3
+	resto := false
+
+	if quero && resposta.TipoAposta == TipoFlor && r.EstadoFlor == "FLOR" { // FLOR e FLOR
+		sala.Jogo.Time02.Pontos += 3
+		sala.Jogo.Time01.Pontos += 3
+		
+	} else if quero {
+		switch r.EstadoFlor {
+		case "CONTRA_FLOR":
+			pontosFlor = 6
+		case "CONTRA_FLOR_AL_RESTO":
+			resto = true
 		}
 
+		time01 := ContarPontosFlor(sala.Jogo.Time01.Jogadores[0].Mao)
+		time02 := ContarPontosFlor(sala.Jogo.Time02.Jogadores[0].Mao)
+
+		if time01 > time02 {
+			time = Time01
+		} else if time02 > time01 {
+			time = Time02
+		} else {
+			time = r.TimeDaMao
+		}
 	} else {
-		// Caso o Truco seja recusado, atribui o valor da mão
-		r.ApostaAtual.Estado = "RECUSADO"
-		switch time {
-		case Time01:
-			AtribuirPontoTime(&sala.Jogo.Time02, r.ValorDaMao, sala)
-		case Time02:
-			AtribuirPontoTime(&sala.Jogo.Time01, r.ValorDaMao, sala)
+		switch r.EstadoFlor {
+		case TipoContraFlor:
+			pontosFlor = 3
+		case TipoContraFlorAlResto:
+			pontosFlor = 6
 		}
-
-		NotificarRespostaAposta(sala, resposta, time)
-		IniciarRodada(sala)
-		return
-	}
-
-	r.Truco = false
-	r.Retruco = false
-	r.ValeQuatro = false
-
-	NotificarRespostaAposta(sala, resposta, time)
-}
-
-func NotificarRespostaAposta(sala *models.Sala, resposta models.RespostaAposta, time string) {
-	data, _ := json.Marshal(resposta)
-
-	var adversarios []*models.Jogador
-	if time == Time01 {
-		adversarios = sala.Jogo.Time02.Jogadores
-	} else {
-		adversarios = sala.Jogo.Time01.Jogadores
-	}
-
-	// Notificar Resposta da Aposta
-	for _, jogador := range adversarios {
-		jogador.Conn.WriteMessage(websocket.TextMessage, data)
-
-	}
-
-	sala.Jogo.Estado = "EM_ANDAMENTO"
-}
-
-func CantarTruco(m []byte, conn *websocket.Conn) {
-	var payload models.IDSala
-
-	json.Unmarshal(m, &payload)
-
-	sala := VerificarSalaExiste(payload.IDSala, conn)
-
-	if sala == nil {
-		return
-	}
-
-	rodadaAtual := RodadaAtual(sala)
-	if !rodadaAtual.Truco {
-		responderErro(conn, "Não é possível pedir Truco")
-	}
-
-	jogadorDoTruco := BuscarJogador(sala, conn)
-
-	time := jogadorDoTruco.Time
-
-	if time == Time01 && sala.Jogo.Time01.Pontos == 29 {
-		sala.Jogo.Time01.Pontos = 15
-	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
-		sala.Jogo.Time02.Pontos = 15
-	}
-
-	if rodadaAtual.VezJogador != jogadorDoTruco {
-		responderErro(conn, "Não é a vez do jogador")
-		return
-	}
-
-	switch time {
-	case Time01:
-		rodadaAtual.ApostaAtual = models.Aposta{
-			Tipo:     payload.Type,
-			Estado:   "AGUARDANDO_RESPOSTA",
-			ParaTime: Time02,
-		}
-		EnviarAposta(Time02, sala, payload.Type)
-	case Time02:
-		rodadaAtual.ApostaAtual = models.Aposta{
-			Tipo:     payload.Type,
-			Estado:   "AGUARDANDO_RESPOSTA",
-			ParaTime: Time01,
-		}
-		EnviarAposta(Time01, sala, payload.Type)
-	}
-
-	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
-}
-
-func EnviarAposta(time string, sala *models.Sala, tipoAposta string) {
-	aposta := models.EnviarAposta{
-		Type:         "APOSTA",
-		TipoDeAposta: tipoAposta,
-	}
-	var data []byte
-	data, _ = json.Marshal(aposta)
-
-	// Envia a aposta para o time adversário
-	for _, jogador := range sala.Jogadores {
-		if jogador.Time == time {
-			jogador.Conn.WriteMessage(websocket.TextMessage, data)
-		}
-	}
-}
-
-func BuscarJogador(sala *models.Sala, conn *websocket.Conn) *models.Jogador {
-	for _, jogador := range sala.Jogadores {
-		if jogador.Conn == conn {
-			return jogador
-		}
-	}
-
-	return nil
-}
-
-func CantarFlor(m []byte, conn *websocket.Conn) {
-	var payload models.IDSala
-
-	json.Unmarshal(m, &payload)
-
-	sala := VerificarSalaExiste(payload.IDSala, conn)
-
-	if sala == nil {
-		return
-	}
-
-	rodadaAtual := RodadaAtual(sala)
-	if !rodadaAtual.Flor {
-		responderErro(conn, "Não é possível pedir Flor")
-	}
-
-	jogadorDaFlor := BuscarJogador(sala, conn)
-	var outroJogador *models.Jogador
-
-	for _, jogador := range sala.Jogadores {
-		if jogador != jogadorDaFlor {
-			outroJogador = jogador
-		}
-	}
-
-	if !outroJogador.TemFlor {
-		time := jogadorDaFlor.Time
 
 		if time == Time01 {
-			sala.Jogo.Time01.Pontos += 3
-			rodadaAtual.TimeChamouFlor = 1
+			time = Time02
 		} else {
-			sala.Jogo.Time02.Pontos += 3
-			rodadaAtual.TimeChamouFlor = 2
+			time = Time01
 		}
-	} else {
-
-		switch jogadorDaFlor.Time {
-		case Time01:
-			rodadaAtual.ApostaAtual = models.Aposta{
-				Tipo:     payload.Type,
-				Estado:   "AGUARDANDO_RESPOSTA",
-				ParaTime: Time02,
-			}
-			EnviarAposta(Time02, sala, payload.Type)
-		case Time02:
-			rodadaAtual.ApostaAtual = models.Aposta{
-				Tipo:     payload.Type,
-				Estado:   "AGUARDANDO_RESPOSTA",
-				ParaTime: Time01,
-			}
-			EnviarAposta(Time01, sala, payload.Type)
-		}
-
-		rodadaAtual.EstadoFlor = payload.Type
-		sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
-	}
-}
-
-func CantarEnvido(m []byte, conn *websocket.Conn) {
-	var payload models.IDSala
-
-	json.Unmarshal(m, &payload)
-
-	sala := VerificarSalaExiste(payload.IDSala, conn)
-
-	if sala == nil {
-		return
-	}
-
-	rodadaAtual := RodadaAtual(sala)
-	if !rodadaAtual.Envido {
-		responderErro(conn, "Não é possível pedir Envido")
-	}
-
-	jogadorDoEnvido := BuscarJogador(sala, conn)
-	time := jogadorDoEnvido.Time
-
-	if time == Time01 && sala.Jogo.Time01.Pontos == 29 {
-		sala.Jogo.Time01.Pontos = 15
-	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
-		sala.Jogo.Time02.Pontos = 15
-	}
-
-	log.Println(rodadaAtual.VezJogador.Nome, jogadorDoEnvido.Nome)
-
-	if rodadaAtual.VezJogador.Conn != conn {
-		responderErro(conn, "Não é a vez do jogador")
-		return
 	}
 
 	switch time {
 	case Time01:
-		rodadaAtual.ApostaAtual = models.Aposta{
-			Tipo:     payload.Type,
-			Estado:   "AGUARDANDO_RESPOSTA",
-			ParaTime: Time02,
+		if resto {
+			AtribuirPontoTime(&sala.Jogo.Time01, 30-sala.Jogo.Time02.Pontos, sala)
+		} else {
+			AtribuirPontoTime(&sala.Jogo.Time01, pontosFlor, sala)
 		}
-		EnviarAposta(Time02, sala, payload.Type)
 	case Time02:
-		rodadaAtual.ApostaAtual = models.Aposta{
-			Tipo:     payload.Type,
-			Estado:   "AGUARDANDO_RESPOSTA",
-			ParaTime: Time01,
+		if resto {
+			AtribuirPontoTime(&sala.Jogo.Time02, 30-sala.Jogo.Time01.Pontos, sala)
+		} else {
+			AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
 		}
-		EnviarAposta(Time01, sala, payload.Type)
 	}
 
-	rodadaAtual.CadeiaEnvido = append(rodadaAtual.CadeiaEnvido, payload.Type)
-	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+	r.Flor = false
+	r.ContraFlor = false
+	r.ContraFlorAlResto = false
+
+	NotificarRespostaAposta(sala, resposta, time)
 }

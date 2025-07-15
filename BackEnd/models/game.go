@@ -16,7 +16,7 @@ type Sala struct {
 // STRUCT QUE GERENCIA O ESTADO DO JOGO
 type EstadoJogo struct {
 	Estado     string
-	Rodadas    []*Rodada
+	Rodada     *Rodada
 	Time01     Equipe
 	Time02     Equipe
 	Baralho    []Cartas
@@ -55,7 +55,6 @@ type Rodada struct {
 	TimeDaMao      string
 	CadeiaEnvido   []string
 	EstadoFlor     string
-	TimeChamouFlor int
 }
 
 type Equipe struct {
@@ -88,7 +87,6 @@ func (n *EstadoJogo) EscolherEquipe(escolha string, jogador *Jogador) bool {
 
 func NovoEstadoJogo() EstadoJogo {
 	return EstadoJogo{
-		Rodadas: []*Rodada{},
 		Time01:  NovaEquipe(),
 		Time02:  NovaEquipe(),
 	}
