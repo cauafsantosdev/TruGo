@@ -11,6 +11,7 @@ type Jogador struct {
 	Nome string
 	Mao  []Cartas
 	Time string
+	TemFlor bool
 }
 
 type Time struct {

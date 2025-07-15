@@ -16,6 +16,8 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 	}
 
 	switch payload.Type {
+
+	// Dinâmicas da sala
 	case "CRIAR_SALA":
 		CriarSala(message, conn)
 	case "ENTRAR_SALA":
@@ -24,25 +26,37 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 		EscolherTime(message, conn)
 	case "LISTAR_SALAS":
 		ListarSalas(conn)
+
+	// Jogar carta
 	case "FAZER_JOGADA":
 		FazerJogada(message, conn)
+
+	// Truco e aumentos
 	case "CHAMAR_TRUCO":
-		ChamarTruco(message, conn)
+		CantarTruco(message, conn)
+	case "CHAMAR_RETRUCO":
+		CantarTruco(message, conn)
+	case "CHAMAR_VALE_QUATRO":
+		CantarTruco(message, conn)
+
+	// Envidos
+	case "CHAMAR_ENVIDO":
+		CantarEnvido(message, conn)
+	case "CHAMAR_REAL_ENVIDO":
+		CantarEnvido(message, conn)
+	case "CHAMAR_FALTA_ENVIDO":
+		CantarEnvido(message, conn)
+
+	// Flor e Contra-Flor
 	case "CANTAR_FLOR":
 		CantarFlor(message, conn)
-	case "CHAMAR_ENVIDO":
-		ChamarEnvido(message, conn)
 	case "CANTAR_CONTRA_FLOR":
-		CantarContraFlor(message, conn)
-	case "CHAMAR_REAL_ENVIDO":
-		ChamarRealEnvido(message, conn)
-	case "CHAMAR_FALTA_ENVIDO":
-		ChamarFaltaEnvido(message, conn)
-	case "CHAMAR_RETRUCO":
-		ChamarRetruco(message, conn)
-	case "CHAMAR_VALE_QUATRO":
-		ChamarValeQuatro(message, conn)
-	case "ACEITAR_APOSTA":
-		AceitarAposta(message, conn)
+		CantarFlor(message, conn)
+	case "CANTAR_CONTRA_FLOR_AL_RESTO":
+		CantarFlor(message, conn)
+
+	// Resposta das apostas
+	case "RESPONDER_APOSTA":
+		ResponderAposta(message, conn)
 	}
 }

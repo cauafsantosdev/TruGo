@@ -66,6 +66,7 @@ type FazerJogada struct {
 }
 
 type IDSala struct {
+	Type string `json:"type"`
 	IDSala string `json:"idSala"`
 }
 
@@ -74,7 +75,7 @@ type EnviarAposta struct {
 	TipoDeAposta string `json:"aposta"`
 }
 
-type AceitarAposta struct {
+type ResponderAposta struct {
 	Type       string `json:"type"`
 	TipoAposta string `json:"tipoAposta"`
 	IDSala     string `json:"idSala"`
@@ -84,7 +85,7 @@ type AceitarAposta struct {
 type RespostaAposta struct {
 	Type       string `json:"type"`
 	TipoAposta string `json:"tipoAposta"`
-	Aceito     bool   `json:"aceito"`
+	Quero     bool    `json:"quero"`
 }
 
 type MaoDaRodada struct {

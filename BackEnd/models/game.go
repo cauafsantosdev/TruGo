@@ -20,7 +20,7 @@ type EstadoJogo struct {
 	Time01     Equipe
 	Time02     Equipe
 	Baralho    []Cartas
-	JogadorVez *Jogador
+	JogadorMao *Jogador
 	IdxJogador int
 }
 
@@ -38,20 +38,26 @@ type Rodada struct {
 	Truco  bool
 
 	// Apostas aumentadas
-	ContraFlor  bool
-	RealEnvido  bool
-	FaltaEnvido bool
-	Retruco     bool
-	ValeQuatro  bool
+	ContraFlor        bool
+	ContraFlorAlResto bool
+	RealEnvido        bool
+	FaltaEnvido       bool
+	Retruco           bool
+	ValeQuatro        bool
 
-	CartasJogada []CartaJogada
-	VezJogador   *Jogador
+	CartasJogadas   []CartaJogada
+	CartasEmDisputa []CartaJogada
+	VezJogador      *Jogador
 
-	ValorDaMao   int
-	Rodada       []int
-	IdxJogador   int
-	TimeDaMao    string
-	CadeiaEnvido int
+	ValorDaMao     int
+	Rodada         []int
+	IdxJogador     int
+	TimeDaMao      string
+	CadeiaEnvido   []string
+	EstadoFlor     string
+	TimeChamouFlor int
+
+	UltimaCarta int
 }
 
 type Equipe struct {
