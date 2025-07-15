@@ -16,13 +16,13 @@ var upgrader = websocket.Upgrader{
 
 func reader(conn *websocket.Conn) {
 	for {
-
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
 			break
 		}
-
+		// Print da mensagem recebida
+		fmt.Println("Mensagem recebida do WebSocket:", string(message))
 		ws.EscolhaType(message, conn)
 	}
 }
@@ -47,4 +47,5 @@ func main() {
 	fmt.Println("TruGo WebSocket started")
 	setupRoutes()
 	log.Fatal(http.ListenAndServe(":8080", nil))
+
 }
