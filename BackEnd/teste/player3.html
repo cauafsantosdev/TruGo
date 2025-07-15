@@ -9,7 +9,7 @@
   <script>
      const socket = new WebSocket("ws://localhost:8080/ws");
 
-      let idx = 0;
+      let idx = 1;
 
       let minhasJogadas = [];
 
@@ -55,7 +55,7 @@
         }
       }} else if (msg.type === "APOSTA") {
           socket.send(JSON.stringify({
-              type: "ACEITAR_APOSTA",
+              type: "RESPONDER_APOSTA",
               idSala: "2020",
               tipoAposta: "TRUCO",
               aceitar: true,

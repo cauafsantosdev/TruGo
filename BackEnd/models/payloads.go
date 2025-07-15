@@ -35,8 +35,9 @@ type SalasDisponiveis struct {
 }
 
 type PartidaFinalizada struct {
-	Type     string `json:"type"`
-	Mensagem string `json:"message"`
+	Type     string         `json:"type"`
+	Mensagem string         `json:"message"`
+	Placar   map[string]int `json:"placar"`
 }
 
 type CartaResposta struct {
@@ -66,7 +67,7 @@ type FazerJogada struct {
 }
 
 type IDSala struct {
-	Type string `json:"type"`
+	Type   string `json:"type"`
 	IDSala string `json:"idSala"`
 }
 
@@ -85,10 +86,11 @@ type ResponderAposta struct {
 type RespostaAposta struct {
 	Type       string `json:"type"`
 	TipoAposta string `json:"tipoAposta"`
-	Quero     bool    `json:"quero"`
+	Quero      bool   `json:"quero"`
 }
 
 type MaoDaRodada struct {
 	Type string          `json:"type"`
 	Mao  []CartaResposta `json:"mao"`
+	Equipes map[string]string `json:"equipes"`
 }
