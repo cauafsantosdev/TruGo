@@ -1077,3 +1077,54 @@ func BuscarJogador(sala *models.Sala, conn *websocket.Conn) *models.Jogador {
 
 	return nil
 }
+
+// IrAoMazo é quando um jogador desiste da rodada
+func IrAoMazo(m []byte, conn *websocket.Conn) {
+	var payload models.IDSala
+	if err := json.Unmarshal(m, &payload); err != nil {
+		log.Printf("Erro ao decodificar payload para IrAoMazo: %v", err)
+		return
+	}
+
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+	if sala == nil {
+		return
+	}
+
+	// Verifica se a partida está em um estado que permite desistir
+	if sala.Jogo.Estado != "EM_ANDAMENTO" {
+		responderErro(conn, "Não é possível ir ao maço durante uma aposta.")
+		return
+	}
+	
+	// Identifica o jogador que desistiu e a rodada atual
+	jogadorQueDesistiu := BuscarJogador(sala, conn)
+	rodadaAtual := RodadaAtual(sala)
+	
+	// Determina qual time ganhou os pontos
+	var timeVencedor *models.Equipe
+	if jogadorQueDesistiu.Time == Time01 {
+		timeVencedor = &sala.Jogo.Time02
+	} else {
+		timeVencedor = &sala.Jogo.Time01
+	}
+
+	// Atribui os pontos da mão atual para o time vencedor
+	pontosGanhos := rodadaAtual.ValorDaMao
+	AtribuirPontoTime(timeVencedor, pontosGanhos, sala)
+
+	// Notifica os jogadores sobre a desistência
+	resposta := models.Resposta{
+		Type: "JOGADOR_FOI_AO_MAZO",
+		Msg:  fmt.Sprintf("O jogador %s foi ao mazo. A equipe %s ganha %d ponto(s).", jogadorQueDesistiu.Nome, timeVencedor.Jogadores[0].Time, pontosGanhos),
+	}
+	data, _ := json.Marshal(resposta)
+	for _, jogador := range sala.Jogadores {
+		jogador.Conn.WriteMessage(websocket.TextMessage, data)
+	}
+
+	// Se a partida não acabou, inicia a próxima rodada.
+	if sala.Jogo.Estado != "PARTIDA_FINALIZADA" {
+		IniciarRodada(sala)
+	}
+}

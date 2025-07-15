@@ -58,5 +58,9 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 	// Resposta das apostas
 	case "RESPONDER_APOSTA":
 		ResponderAposta(message, conn)
+
+	// Ir ao mazo
+	case "IR_AO_MAZO":
+		IrAoMazo(message, conn)
 	}
 }
