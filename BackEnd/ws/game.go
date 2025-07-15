@@ -255,7 +255,6 @@ func IniciarRodada(sala *models.Sala) {
 		ValorDaMao:        1,
 		CadeiaEnvido:      []string{},
 		VezJogador:        AlternarVezJogador(sala),
-		UltimaCarta:       idxBaralho,
 	}
 
 	rodada.TimeDaMao = rodada.VezJogador.Time

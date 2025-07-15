@@ -56,8 +56,6 @@ type Rodada struct {
 	CadeiaEnvido   []string
 	EstadoFlor     string
 	TimeChamouFlor int
-
-	UltimaCarta int
 }
 
 type Equipe struct {
