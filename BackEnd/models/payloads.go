@@ -94,3 +94,10 @@ type MaoDaRodada struct {
 	Mao  []CartaResposta `json:"mao"`
 	Equipes map[string]string `json:"equipes"`
 }
+
+type MaoFinalizada struct {
+	Type         string         `json:"type"`
+	TimeVencedor string         `json:"timeVencedor"`
+	PontosGanhos int            `json:"pontosGanhos"`
+	Placar       map[string]int `json:"placar"`
+}

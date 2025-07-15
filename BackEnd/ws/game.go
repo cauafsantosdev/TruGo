@@ -254,7 +254,10 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	// Verifica se ouve um vencedor da rodada e passa para a próxima
 	equipe, fimDaMao := TimeGanhadorMao(rodadaAtual.Rodada, &salaExiste.Jogo.Time01, &salaExiste.Jogo.Time02)
 	if fimDaMao {
-		AtribuirPontoTime(equipe, rodadaAtual.ValorDaMao, salaExiste)
+		pontosGanhos := rodadaAtual.ValorDaMao
+
+		AtribuirPontoTime(equipe, pontosGanhos, salaExiste)
+		NotificarMaoFinalizada(salaExiste, equipe, pontosGanhos)
 		IniciarRodada(salaExiste)
 		return
 	}
@@ -360,6 +363,23 @@ func AtribuirPontoTime(e *models.Equipe, pnts int, s *models.Sala) {
 	if pnts == 30 || e.Pontos >= 30 {
 		e.Pontos = 30
 		AcabouPartida(e, s)
+	}
+}
+
+// Notifica o websocket que a mão foi encerrada
+func NotificarMaoFinalizada(sala *models.Sala, timeVencedor *models.Equipe, pontosGanhos int) {
+	payload := models.MaoFinalizada{
+		Type:         "MAO_FINALIZADA",
+		TimeVencedor: timeVencedor.Jogadores[0].Time,
+		PontosGanhos: pontosGanhos,
+		Placar:       MostrarPlacar(sala),
+	}
+
+	data, _ := json.Marshal(payload)
+
+	// Envia a mensagem para todos os jogadores na sala
+	for _, jogador := range sala.Jogadores {
+		jogador.Conn.WriteMessage(websocket.TextMessage, data)
 	}
 }
 
@@ -777,6 +797,14 @@ func AvaliarTruco(sala *models.Sala, r *models.Rodada, time string, quero bool, 
 		r.Retruco = false
 		r.ValeQuatro = false
 
+		var timeVencedor *models.Equipe
+		if time == Time01 {
+			timeVencedor = &sala.Jogo.Time02
+		} else {
+			timeVencedor = &sala.Jogo.Time01
+		}
+
+		NotificarMaoFinalizada(sala, timeVencedor, r.ValorDaMao)
 		NotificarRespostaAposta(sala, resposta, time)
 		IniciarRodada(sala)
 		return
@@ -1112,6 +1140,7 @@ func IrAoMazo(m []byte, conn *websocket.Conn) {
 	// Atribui os pontos da mão atual para o time vencedor
 	pontosGanhos := rodadaAtual.ValorDaMao
 	AtribuirPontoTime(timeVencedor, pontosGanhos, sala)
+	NotificarMaoFinalizada(sala, timeVencedor, pontosGanhos)
 
 	// Notifica os jogadores sobre a desistência
 	resposta := models.Resposta{
