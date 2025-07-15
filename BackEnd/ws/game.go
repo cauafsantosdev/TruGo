@@ -254,6 +254,11 @@ func IniciarRodada(sala *models.Sala) {
 		ValeQuatro:        false,
 		ValorDaMao:        1,
 		CadeiaEnvido:      []string{},
+		EstadoFlor: "",
+		TimeChamouFlor: 0,
+		CartasJogadas: []models.CartaJogada{},
+		CartasEmDisputa: []models.CartaJogada{},
+		
 		VezJogador:        AlternarVezJogador(sala),
 	}
 
