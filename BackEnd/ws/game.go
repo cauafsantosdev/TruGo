@@ -602,7 +602,7 @@ func CantarTruco(m []byte, conn *websocket.Conn) {
 	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
 		sala.Jogo.Time02.Pontos = 15
 	}
-	
+
 	payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
 
 	switch payload.Type {
@@ -724,9 +724,12 @@ func CantarFlor(m []byte, conn *websocket.Conn) {
 
 		if time == Time01 {
 			sala.Jogo.Time01.Pontos += 3
+			AvisarFlorBoa(conn, time, sala, false)
 		} else {
 			sala.Jogo.Time02.Pontos += 3
+			AvisarFlorBoa(conn, time, sala, false)
 		}
+
 	} else {
 		payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
 
@@ -737,18 +740,49 @@ func CantarFlor(m []byte, conn *websocket.Conn) {
 				Estado:   "AGUARDANDO_RESPOSTA",
 				ParaTime: Time02,
 			}
-			EnviarAposta(Time02, sala, payload.Type)
+			AvisarFlorAdversario(Time02, sala, true)
 		case Time02:
 			rodadaAtual.ApostaAtual = models.Aposta{
 				Tipo:     payload.Type,
 				Estado:   "AGUARDANDO_RESPOSTA",
 				ParaTime: Time01,
 			}
-			EnviarAposta(Time01, sala, payload.Type)
+			AvisarFlorAdversario(Time01, sala, true)
 		}
 
 		rodadaAtual.EstadoFlor = payload.Type
 		sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+
+		rodadaAtual.ContraFlor = true
+		rodadaAtual.ContraFlorAlResto = true
+	}
+}
+
+func AvisarFlorBoa(conn *websocket.Conn, time string, s *models.Sala, c bool) {
+	payload := models.RespostaFlor{
+		Type: "BOA",
+	}
+
+	data, _ := json.Marshal(payload)
+
+	conn.WriteMessage(websocket.TextMessage, data)
+
+	AvisarFlorAdversario(time, s, c)
+}
+
+func AvisarFlorAdversario(time string, s *models.Sala, c bool) {
+	payload := models.RespostaFlor{
+		Type:             "FLOR_CANTADA",
+		RespostaParaFlor: c,
+	}
+
+	data, _ := json.Marshal(payload)
+
+	switch time {
+	case Time01:
+		s.Jogo.Time02.Jogadores[0].Conn.WriteMessage(websocket.TextMessage, data)
+	case Time02:
+		s.Jogo.Time01.Jogadores[0].Conn.WriteMessage(websocket.TextMessage, data)
 	}
 }
 
@@ -1121,11 +1155,11 @@ func IrAoMazo(m []byte, conn *websocket.Conn) {
 		responderErro(conn, "Não é possível ir ao maço durante uma aposta.")
 		return
 	}
-	
+
 	// Identifica o jogador que desistiu e a rodada atual
 	jogadorQueDesistiu := BuscarJogador(sala, conn)
 	rodadaAtual := RodadaAtual(sala)
-	
+
 	// Determina qual time ganhou os pontos
 	var timeVencedor *models.Equipe
 	if jogadorQueDesistiu.Time == Time01 {

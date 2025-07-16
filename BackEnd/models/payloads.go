@@ -90,8 +90,8 @@ type RespostaAposta struct {
 }
 
 type MaoDaRodada struct {
-	Type string          `json:"type"`
-	Mao  []CartaResposta `json:"mao"`
+	Type    string            `json:"type"`
+	Mao     []CartaResposta   `json:"mao"`
 	Equipes map[string]string `json:"equipes"`
 }
 
@@ -111,4 +111,14 @@ type ComandoAudio struct {
 type TocarAudio struct {
 	Type      string `json:"type"`
 	NomeAudio string `json:"nomeAudio"`
+}
+
+type RespostaFlor struct {
+	Type             string `json:"type"`
+	RespostaParaFlor bool   `json:"boa"`
+}
+
+type RespostaFlorAdversario struct {
+	Type             string `json:"type"`
+	RespostaParaFlor bool   `json:"apostaFlor"`
 }
