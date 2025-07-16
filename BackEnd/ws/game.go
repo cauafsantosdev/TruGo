@@ -1154,3 +1154,16 @@ func IrAoMazo(m []byte, conn *websocket.Conn) {
 		IniciarRodada(sala)
 	}
 }
+
+// Toca um áudio para todos os jogadores da sala
+func TocarAudio(sala *models.Sala, nomeAudio string) {
+	payload := models.TocarAudio{
+		Type:      "TOCAR_AUDIO",
+		NomeAudio: nomeAudio,
+	}
+
+	data, _ := json.Marshal(payload)
+	for _, jogador := range sala.Jogadores {
+		jogador.Conn.WriteMessage(websocket.TextMessage, data)
+	}
+}

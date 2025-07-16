@@ -62,5 +62,9 @@ func EscolhaType(message []byte, conn *websocket.Conn) {
 	// Ir ao mazo
 	case "IR_AO_MAZO":
 		IrAoMazo(message, conn)
+
+	// Tocar áudio
+	case "TOCAR_AUDIO":
+		IrAoMazo(message, conn)
 	}
 }
