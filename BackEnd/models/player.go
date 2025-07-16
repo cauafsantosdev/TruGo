@@ -6,17 +6,18 @@ import (
 )
 
 type Jogador struct {
-	Conn *websocket.Conn
-	ID   string
-	Nome string
-	Mao  []Cartas
-	Time string
+	Conn    *websocket.Conn
+	ID      string
+	Nome    string
+	Mao     []Cartas
+	Time    string
 	TemFlor bool
+	PontosEnvido int
 }
 
 type Time struct {
-	Jogadores []*Jogador
-	Pontos    int
+	Jogadores    []*Jogador
+	Pontos       int
 }
 
 func NovoJogador(n string, conn *websocket.Conn) *Jogador {

@@ -122,3 +122,8 @@ type RespostaFlorAdversario struct {
 	Type             string `json:"type"`
 	RespostaParaFlor bool   `json:"apostaFlor"`
 }
+
+type PontosDaMao struct {
+	Type   string `json:"type"`
+	Equipe map[string]int
+}

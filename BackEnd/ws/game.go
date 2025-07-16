@@ -213,6 +213,10 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	if rodadaAtual.IdxJogador == 1 {
 		jogadorGanhouMao := ResolverRodada(rodadaAtual.CartasEmDisputa)
 
+		if len(rodadaAtual.Rodada) == 0 {
+			NotificarPontosEnvido(salaExiste)
+		}
+
 		// PASSAR A VEZ PARA O PRÓXIMO JOGADOR (o jogador que ganhou a mão)
 		if jogadorGanhouMao == nil {
 			rodadaAtual.Rodada = append(rodadaAtual.Rodada, 0)
@@ -231,8 +235,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		}
 
 		NotificarJogadores(salaExiste)
-		log.Println(rodadaAtual.CartasEmDisputa[0].Carta, rodadaAtual.CartasEmDisputa[0].Jogador.Nome,
-			rodadaAtual.CartasEmDisputa[1].Carta, rodadaAtual.CartasEmDisputa[1].Jogador.Nome)
 
 		rodadaAtual.CartasEmDisputa = []models.CartaJogada{}
 
@@ -272,6 +274,29 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 	RetirarCartaJogador(rodadaAtual.VezJogador, cartaJogada.Carta)
 	AvisarJogadorVez(rodadaAtual.VezJogador, rodadaAtual, salaExiste)
+}
+
+func NotificarPontosEnvido(s *models.Sala) {
+	payload := models.PontosDaMao{
+		Type: "PONTOS_ENVIDO",
+	}
+
+	payload.Equipe = make(map[string]int)
+
+	for _, jogador := range s.Jogadores {
+		switch jogador.Time {
+		case Time01:
+			payload.Equipe[Time01] = jogador.PontosEnvido
+		case Time02:
+			payload.Equipe[Time02] = jogador.PontosEnvido
+		}
+	}
+
+	data, _ := json.Marshal(payload)
+
+	for _, jogador := range s.Jogadores {
+		jogador.Conn.WriteMessage(websocket.TextMessage, data)
+	}
 }
 
 // Remove a carta da mão do jogador
@@ -1104,8 +1129,11 @@ func ContarPontosEnvido(jogador *models.Jogador) int {
 	}
 
 	if maiorPontuacao > 0 {
-		return maiorPontuacao
+		maiorCarta = maiorPontuacao
 	}
+
+	jogador.PontosEnvido = maiorCarta
+
 	return maiorCarta
 }
 
