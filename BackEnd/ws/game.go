@@ -377,10 +377,11 @@ func AtribuirPontoTime(e *models.Equipe, pnts int, s *models.Sala) {
 // Notifica o websocket que a mão foi encerrada
 func NotificarMaoFinalizada(sala *models.Sala, timeVencedor *models.Equipe, pontosGanhos int) {
 	payload := models.MaoFinalizada{
-		Type:         "MAO_FINALIZADA",
-		TimeVencedor: timeVencedor.Jogadores[0].Time,
-		PontosGanhos: pontosGanhos,
-		Placar:       MostrarPlacar(sala),
+		Type:          "MAO_FINALIZADA",
+		TimeVencedor:  timeVencedor.Jogadores[0].Time,
+		PontosGanhos:  pontosGanhos,
+		Placar:        MostrarPlacar(sala),
+		CartasJogadas: CartasNaMesa(sala.Jogo.Rodada), // Adiciona as cartas jogadas na rodada
 	}
 
 	data, _ := json.Marshal(payload)
@@ -602,7 +603,7 @@ func CantarTruco(m []byte, conn *websocket.Conn) {
 	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
 		sala.Jogo.Time02.Pontos = 15
 	}
-	
+
 	payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
 
 	switch payload.Type {
@@ -1121,11 +1122,11 @@ func IrAoMazo(m []byte, conn *websocket.Conn) {
 		responderErro(conn, "Não é possível ir ao maço durante uma aposta.")
 		return
 	}
-	
+
 	// Identifica o jogador que desistiu e a rodada atual
 	jogadorQueDesistiu := BuscarJogador(sala, conn)
 	rodadaAtual := RodadaAtual(sala)
-	
+
 	// Determina qual time ganhou os pontos
 	var timeVencedor *models.Equipe
 	if jogadorQueDesistiu.Time == Time01 {
