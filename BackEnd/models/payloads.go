@@ -102,6 +102,12 @@ type MaoFinalizada struct {
 	Placar       map[string]int `json:"placar"`
 }
 
+type ComandoAudio struct {
+	Type      string `json:"type"`
+	IDSala    string `json:"idSala"`
+	NomeAudio string `json:"nomeAudio"`
+}
+
 type TocarAudio struct {
 	Type      string `json:"type"`
 	NomeAudio string `json:"nomeAudio"`

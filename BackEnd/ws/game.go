@@ -1156,13 +1156,24 @@ func IrAoMazo(m []byte, conn *websocket.Conn) {
 }
 
 // Toca um áudio para todos os jogadores da sala
-func TocarAudio(sala *models.Sala, nomeAudio string) {
-	payload := models.TocarAudio{
-		Type:      "TOCAR_AUDIO",
-		NomeAudio: nomeAudio,
+func TocarAudio(m []byte, conn *websocket.Conn) {
+	var payload models.ComandoAudio
+	if err := json.Unmarshal(m, &payload); err != nil {
+		log.Printf("Erro ao decodificar payload para ComandoAudio: %v", err)
+		return
 	}
 
-	data, _ := json.Marshal(payload)
+	sala := VerificarSalaExiste(payload.IDSala, conn)
+	if sala == nil {
+		return
+	}
+
+	mensagemParaJogadores := models.TocarAudio{
+		Type:      "TOCAR_AUDIO",
+		NomeAudio: payload.NomeAudio,
+	}
+
+	data, _ := json.Marshal(mensagemParaJogadores)
 	for _, jogador := range sala.Jogadores {
 		jogador.Conn.WriteMessage(websocket.TextMessage, data)
 	}
