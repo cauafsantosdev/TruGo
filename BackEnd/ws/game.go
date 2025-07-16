@@ -1043,6 +1043,10 @@ func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, quero bool, t
 			AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
 		}
 	}
+ 
+ if quero {
+		NotificarPontosEnvido(sala, time)
+	}
 
 	r.Flor = false
 	r.ContraFlor = false
