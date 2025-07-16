@@ -295,10 +295,11 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	AvisarJogadorVez(rodadaAtual.VezJogador, rodadaAtual, salaExiste)
 }
 
-func NotificarPontosEnvido(s *models.Sala) {
+func NotificarPontosEnvido(s *models.Sala, time string) {
 	payload := models.PontosDaMao{
 		Type:   "PONTOS_ENVIDO",
 		Equipe: make(map[string]int),
+		Vencedor: time,
 		Placar: MostrarPlacar(s),
 	}
 
@@ -970,7 +971,7 @@ func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, quero bool,
 	NotificarRespostaAposta(sala, resposta, timeAposta)
 
 	if quero {
-		NotificarPontosEnvido(sala)
+		NotificarPontosEnvido(sala, time)
 	}
 
 	r.Envido = false
