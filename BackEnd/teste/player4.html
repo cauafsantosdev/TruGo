@@ -40,7 +40,7 @@
         else if (msg.type === "SUA_VEZ") {
           if (idx === 0) {
             socket.send(JSON.stringify({
-              type: "CHAMAR_TRUCO",
+              type: "CHAMAR_ENVIDO",
               idSala: "2020",
             }));
             idx++;

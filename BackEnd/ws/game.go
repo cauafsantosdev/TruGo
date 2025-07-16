@@ -213,10 +213,6 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 	if rodadaAtual.IdxJogador == 1 {
 		jogadorGanhouMao := ResolverRodada(rodadaAtual.CartasEmDisputa)
 
-		if len(rodadaAtual.Rodada) == 0 {
-			NotificarPontosEnvido(salaExiste)
-		}
-
 		// PASSAR A VEZ PARA O PRÓXIMO JOGADOR (o jogador que ganhou a mão)
 		if jogadorGanhouMao == nil {
 			rodadaAtual.Rodada = append(rodadaAtual.Rodada, 0)
@@ -949,6 +945,10 @@ func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, quero bool,
 	}
 
 	NotificarRespostaAposta(sala, resposta, timeAposta)
+
+	if quero {
+		NotificarPontosEnvido(sala)
+	}
 
 	r.Envido = false
 	r.RealEnvido = false
