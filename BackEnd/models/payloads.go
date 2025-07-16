@@ -126,6 +126,7 @@ type RespostaFlorAdversario struct {
 
 type PontosDaMao struct {
 	Type   string `json:"type"`
+	Vencedor string `json:"vencedor"`
 	Equipe map[string]int
 	Placar map[string]int `json:"placar"`
 }
