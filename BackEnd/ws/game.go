@@ -166,17 +166,40 @@ func MostrarPlacar(s *models.Sala) map[string]int {
 
 // Mostra as apostas disponíveis na rodada
 func ApostasAtivas(r *models.Rodada) map[string]bool {
-	return map[string]bool{
+	// Calcula rodadaAtual: maior número de cartas jogadas por qualquer jogador + 1
+	jogadores := make(map[string]int)
+	for _, jogada := range r.CartasJogadas {
+		if jogada.Jogador != nil {
+			jogadores[jogada.Jogador.Nome]++
+		}
+	}
+	maxCartas := 0
+	for _, v := range jogadores {
+		if v > maxCartas {
+			maxCartas = v
+		}
+	}
+	rodadaAtual := maxCartas + 1 // 1 = primeira rodada, 2 = segunda, etc
+
+	apostas := map[string]bool{
 		"Flor":              r.Flor,
-		"Envido":            r.Envido,
 		"Truco":             r.Truco,
 		"ContraFlor":        r.ContraFlor,
 		"ContraFlorAlResto": r.ContraFlorAlResto,
-		"RealEnvido":        r.RealEnvido,
-		"FaltaEnvido":       r.FaltaEnvido,
 		"Retruco":           r.Retruco,
 		"ValeQuatro":        r.ValeQuatro,
 	}
+	// Só permite Envido, RealEnvido e FaltaEnvido na primeira rodada
+	if rodadaAtual == 1 {
+		apostas["Envido"] = r.Envido
+		apostas["RealEnvido"] = r.RealEnvido
+		apostas["FaltaEnvido"] = r.FaltaEnvido
+	} else {
+		apostas["Envido"] = false
+		apostas["RealEnvido"] = false
+		apostas["FaltaEnvido"] = false
+	}
+	return apostas
 }
 
 // Função para jogar uma carta
@@ -274,10 +297,10 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 func NotificarPontosEnvido(s *models.Sala) {
 	payload := models.PontosDaMao{
-		Type: "PONTOS_ENVIDO",
+		Type:   "PONTOS_ENVIDO",
+		Equipe: make(map[string]int),
+		Placar: MostrarPlacar(s),
 	}
-
-	payload.Equipe = make(map[string]int)
 
 	for _, jogador := range s.Jogadores {
 		switch jogador.Time {
