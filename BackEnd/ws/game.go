@@ -216,6 +216,12 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		// PASSAR A VEZ PARA O PRÓXIMO JOGADOR (o jogador que ganhou a mão)
 		if jogadorGanhouMao == nil {
 			rodadaAtual.Rodada = append(rodadaAtual.Rodada, 0)
+			switch rodadaAtual.VezJogador.Time {
+			case "TIME_01":
+				rodadaAtual.VezJogador = salaExiste.Jogo.Time02.Jogadores[0]
+			case "TIME_02":
+				rodadaAtual.VezJogador = salaExiste.Jogo.Time01.Jogadores[0]
+			}
 		} else if jogadorGanhouMao.Time == "TIME_01" {
 			rodadaAtual.VezJogador = jogadorGanhouMao
 			rodadaAtual.Rodada = append(rodadaAtual.Rodada, 1)
@@ -235,6 +241,8 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 		rodadaAtual.FaltaEnvido = false
 
 		rodadaAtual.Flor = false
+		rodadaAtual.ContraFlor = false
+		rodadaAtual.ContraFlorAlResto = false
 
 		rodadaAtual.IdxJogador = 0
 
@@ -594,12 +602,6 @@ func CantarTruco(m []byte, conn *websocket.Conn) {
 	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
 		sala.Jogo.Time02.Pontos = 15
 	}
-
-	if rodadaAtual.VezJogador != jogadorDoTruco {
-		responderErro(conn, "Não é a vez do jogador")
-		return
-	}
-
 	
 	payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
 
@@ -665,11 +667,6 @@ func CantarEnvido(m []byte, conn *websocket.Conn) {
 		sala.Jogo.Time01.Pontos = 15
 	} else if time == Time02 && sala.Jogo.Time02.Pontos == 29 {
 		sala.Jogo.Time02.Pontos = 15
-	}
-
-	if rodadaAtual.VezJogador.Conn != conn {
-		responderErro(conn, "Não é a vez do jogador")
-		return
 	}
 
 	// Tira o CHAMAR_ do tipo da aposta
