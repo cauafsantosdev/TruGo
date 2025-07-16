@@ -113,3 +113,18 @@ type TocarAudio struct {
 	Type      string `json:"type"`
 	NomeAudio string `json:"nomeAudio"`
 }
+
+type RespostaFlor struct {
+	Type             string `json:"type"`
+	RespostaParaFlor bool   `json:"boa"`
+}
+
+type RespostaFlorAdversario struct {
+	Type             string `json:"type"`
+	RespostaParaFlor bool   `json:"apostaFlor"`
+}
+
+type PontosDaMao struct {
+	Type   string `json:"type"`
+	Equipe map[string]int
+}
