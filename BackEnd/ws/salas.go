@@ -149,7 +149,9 @@ func ListarSalas(conn *websocket.Conn) {
 	salasDisponiveis := make(map[string]int)
 
 	for chave, sala := range models.Salas {
-		salasDisponiveis[chave] = 2 - len(sala.Jogadores)
+		if len(sala.Jogadores) < 2 {
+			salasDisponiveis[chave] = 2 - len(sala.Jogadores)
+		}
 	}
 
 	var payload models.SalasDisponiveis
