@@ -13,8 +13,7 @@ function Salas({ telaAtual = "salas" }) {
     const ws = useRef(null);
 
     useEffect(() => {
-        ws.current = new WebSocket("ws://192.168.2.101:8080/ws");
-
+        ws.current = new WebSocket("wss://trugo.onrender.com/ws");
         ws.current.onopen = listarSalas;
         ws.current.onmessage = handleWebSocketMessage;
         ws.current.onclose = () => console.log("Conexão com o WebSocket fechada.");

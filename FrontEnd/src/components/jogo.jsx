@@ -47,7 +47,7 @@ function Jogo() {
             if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
                 wsRef.current.close();
             }
-            wsRef.current = new WebSocket("ws://192.168.2.101:8080/ws");
+            wsRef.current = new WebSocket("wss://trugo.onrender.com/ws");
 
             wsRef.current.onopen = () => {
                 setConexaoStatus('Conectado');
