@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"trugo/ws"
 
 	"github.com/gorilla/websocket"
@@ -46,6 +47,10 @@ func setupRoutes() {
 func main() {
 	fmt.Println("TruGo WebSocket started")
 	setupRoutes()
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 
 }
