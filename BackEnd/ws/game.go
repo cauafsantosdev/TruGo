@@ -76,8 +76,11 @@ func IniciarRodada(sala *models.Sala) {
 			idxBaralho += 3
 		}
 
-		if jogador.Mao[0].Naipe == jogador.Mao[1].Naipe && jogador.Mao[1].Naipe == jogador.Mao[2].Naipe {
+		// Verifica se o jogador tem Flor
+		if len(jogador.Mao) == 3 && jogador.Mao[0].Naipe == jogador.Mao[1].Naipe && jogador.Mao[1].Naipe == jogador.Mao[2].Naipe {
 			jogador.TemFlor = true
+		} else {
+			jogador.TemFlor = false
 		}
 	}
 
@@ -297,10 +300,10 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 func NotificarPontosEnvido(s *models.Sala, time string) {
 	payload := models.PontosDaMao{
-		Type:   "PONTOS_ENVIDO",
-		Equipe: make(map[string]int),
+		Type:     "PONTOS_ENVIDO",
+		Equipe:   make(map[string]int),
 		Vencedor: time,
-		Placar: MostrarPlacar(s),
+		Placar:   MostrarPlacar(s),
 	}
 
 	for _, jogador := range s.Jogadores {
@@ -742,66 +745,56 @@ func CantarEnvido(m []byte, conn *websocket.Conn) {
 // Canta Flor
 func CantarFlor(m []byte, conn *websocket.Conn) {
 	var payload models.IDSala
-
 	json.Unmarshal(m, &payload)
-
 	sala := VerificarSalaExiste(payload.IDSala, conn)
-
 	if sala == nil {
 		return
 	}
-
 	rodadaAtual := RodadaAtual(sala)
 	if !rodadaAtual.Flor {
 		responderErro(conn, "Não é possível pedir Flor")
+		return
 	}
-
 	jogadorDaFlor := BuscarJogador(sala, conn)
 	var outroJogador *models.Jogador
-
 	for _, jogador := range sala.Jogadores {
 		if jogador != jogadorDaFlor {
 			outroJogador = jogador
 		}
 	}
-
-	if !outroJogador.TemFlor {
-		time := jogadorDaFlor.Time
-
-		if time == Time01 {
+	// Se o adversário não tem Flor, apenas soma 3 pontos e não abre diálogo
+	if outroJogador == nil || !outroJogador.TemFlor {
+		if jogadorDaFlor.Time == Time01 {
 			sala.Jogo.Time01.Pontos += 3
-			AvisarFlorBoa(conn, time, sala, false)
 		} else {
 			sala.Jogo.Time02.Pontos += 3
-			AvisarFlorBoa(conn, time, sala, false)
 		}
-
-	} else {
-		payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
-
-		switch jogadorDaFlor.Time {
-		case Time01:
-			rodadaAtual.ApostaAtual = models.Aposta{
-				Tipo:     payload.Type,
-				Estado:   "AGUARDANDO_RESPOSTA",
-				ParaTime: Time02,
-			}
-			AvisarFlorAdversario(Time02, sala, true)
-		case Time02:
-			rodadaAtual.ApostaAtual = models.Aposta{
-				Tipo:     payload.Type,
-				Estado:   "AGUARDANDO_RESPOSTA",
-				ParaTime: Time01,
-			}
-			AvisarFlorAdversario(Time01, sala, true)
-		}
-
-		rodadaAtual.EstadoFlor = payload.Type
-		sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
-
-		rodadaAtual.ContraFlor = true
-		rodadaAtual.ContraFlorAlResto = true
+		NotificarJogadores(sala)
+		IniciarRodada(sala)
+		return
 	}
+	// Se ambos têm Flor, segue lógica igual ao Envido (abre diálogo de aposta)
+	payload.Type = strings.ReplaceAll(payload.Type, "CHAMAR_", "")
+	switch jogadorDaFlor.Time {
+	case Time01:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time02,
+		}
+		AvisarFlorAdversario(Time02, sala, true)
+	case Time02:
+		rodadaAtual.ApostaAtual = models.Aposta{
+			Tipo:     payload.Type,
+			Estado:   "AGUARDANDO_RESPOSTA",
+			ParaTime: Time01,
+		}
+		AvisarFlorAdversario(Time01, sala, true)
+	}
+	rodadaAtual.EstadoFlor = payload.Type
+	sala.Jogo.Estado = "AGUARDANDO_RESPOSTA_APOSTA"
+	rodadaAtual.ContraFlor = true
+	rodadaAtual.ContraFlorAlResto = true
 }
 
 func AvisarFlorBoa(conn *websocket.Conn, time string, s *models.Sala, c bool) {
@@ -1043,8 +1036,8 @@ func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, quero bool, t
 			AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
 		}
 	}
- 
- if quero {
+
+	if quero {
 		NotificarPontosEnvido(sala, time)
 	}
 
