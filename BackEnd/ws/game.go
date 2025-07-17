@@ -297,10 +297,10 @@ func FazerJogada(m []byte, conn *websocket.Conn) {
 
 func NotificarPontosEnvido(s *models.Sala, time string) {
 	payload := models.PontosDaMao{
-		Type:   "PONTOS_ENVIDO",
-		Equipe: make(map[string]int),
+		Type:     "PONTOS_ENVIDO",
+		Equipe:   make(map[string]int),
 		Vencedor: time,
-		Placar: MostrarPlacar(s),
+		Placar:   MostrarPlacar(s),
 	}
 
 	for _, jogador := range s.Jogadores {
@@ -949,6 +949,12 @@ func AvaliarEnvido(sala *models.Sala, r *models.Rodada, time string, quero bool,
 				}
 			}
 		}
+		switch time {
+		case Time01:
+			time = Time02
+		case Time02:
+			time = Time01
+		}
 	}
 
 	switch time {
@@ -1043,8 +1049,8 @@ func AvaliarFlor(sala *models.Sala, r *models.Rodada, time string, quero bool, t
 			AtribuirPontoTime(&sala.Jogo.Time02, pontosFlor, sala)
 		}
 	}
- 
- if quero {
+
+	if quero {
 		NotificarPontosEnvido(sala, time)
 	}
 
